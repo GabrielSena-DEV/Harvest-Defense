@@ -1,67 +1,90 @@
 import math
+import os
 import random
 import sys
 import pygame
 
-# BYTE DEFENSE — protótipo jogável em Pygame
+# HARVEST DEFENSE — jogo de defesa em Pygame (fazenda + Halloween)
 # Controles: clique em uma torre no painel inferior e depois no mapa para posicioná-la.
 # Clique em uma torre já colocada para selecioná-la. Espaço: iniciar/próxima onda.
-# Q/W/E: selecionar torre. U: melhorar torre selecionada. F: pulso de firewall.
-# ESC: sair.
+# Q/W/E: selecionar torre. U: melhorar torre selecionada. F: pulso lunar.
+# T: árvore de habilidades. ESC: voltar ao menu. F11: tela cheia.
 
 pygame.init()
-pygame.display.set_caption("BYTE DEFENSE — Proteja o núcleo")
+pygame.display.set_caption("HARVEST DEFENSE — Proteja a fazenda. Defenda a colheita.")
 WIDTH, HEIGHT = 1100, 720
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED)
 clock = pygame.time.Clock()
-FONT = pygame.font.SysFont("consolas", 18)
-SMALL = pygame.font.SysFont("consolas", 14)
-BIG = pygame.font.SysFont("consolas", 30, bold=True)
+FONT = pygame.font.SysFont("trebuchetms,verdana,dejavusans", 17)
+SMALL = pygame.font.SysFont("trebuchetms,verdana,dejavusans", 14)
+BIG = pygame.font.SysFont("georgia,dejavuserif", 26, bold=True)
+HUGE = pygame.font.SysFont("georgia,dejavuserif", 32, bold=True)
 
-BG = (9, 15, 27)
-GRID = (17, 30, 47)
-WHITE = (225, 240, 250)
-MINT = (72, 245, 190)
-CYAN = (61, 204, 255)
-PURPLE = (177, 110, 255)
-ORANGE = (255, 170, 70)
-RED = (255, 75, 100)
-MUTED = (130, 157, 180)
-PANEL = (15, 26, 42)
-BORDER = (39, 67, 91)
+BG = (16, 9, 26)
+GRASS_A = (31, 36, 44)
+GRASS_B = (35, 41, 49)
+WHITE = (240, 232, 245)
+MINT = (140, 232, 110)      # "bom / disponível" (verde gosma)
+CYAN = (96, 208, 255)
+PURPLE = (192, 130, 255)
+ORANGE = (255, 150, 50)     # abóbora
+RED = (255, 84, 84)
+MUTED = (160, 140, 178)
+PANEL = (28, 17, 44)
+BORDER = (96, 58, 128)
+DIRT = (104, 72, 48)
+DIRT_EDGE = (70, 46, 34)
 
 MAP_RECT = pygame.Rect(24, 80, 1052, 470)
-CORE = (1000, 310)
 PATH = [(30, 315), (165, 315), (165, 170), (360, 170), (360, 430),
         (560, 430), (560, 245), (760, 245), (760, 360), (1000, 360)]
-# The path is drawn as a connected sequence; the final core is near its endpoint.
-CORE = (1015, 360)
+CORE = (1015, 360)   # o celeiro
 TOWER_TYPES = [
-    {"name": "Sentinela", "cost": 90, "range": 145, "damage": 18, "rate": 0.65, "color": CYAN, "desc": "Disparo equilibrado"},
-    {"name": "Firewall", "cost": 145, "range": 105, "damage": 9, "rate": 0.28, "color": ORANGE, "desc": "Rajada rápida"},
-    {"name": "Sandbox", "cost": 180, "range": 175, "damage": 34, "rate": 1.15, "color": PURPLE, "desc": "Ataque pesado"},
+    {"name": "Espantalho", "cost": 90, "range": 145, "damage": 18, "rate": 0.65, "color": CYAN, "desc": "Raio equilibrado"},
+    {"name": "Lanterna", "cost": 145, "range": 105, "damage": 9, "rate": 0.28, "color": ORANGE, "desc": "Rajada de fogo"},
+    {"name": "Gárgula", "cost": 180, "range": 175, "damage": 34, "rate": 1.15, "color": MINT, "desc": "Ataque pesado"},
 ]
 WAVES = [
-    {"count": 9, "hp": 38, "speed": 62, "reward": 24, "name": "Arquivos suspeitos"},
-    {"count": 13, "hp": 54, "speed": 72, "reward": 30, "name": "Adware"},
-    {"count": 15, "hp": 72, "speed": 80, "reward": 37, "name": "Spyware"},
-    {"count": 17, "hp": 94, "speed": 88, "reward": 45, "name": "Ransomware"},
-    {"count": 21, "hp": 125, "speed": 98, "reward": 58, "name": "Worm mestre"},
+    {"count": 9, "hp": 38, "speed": 62, "reward": 24, "name": "Fantasminhas"},
+    {"count": 13, "hp": 54, "speed": 72, "reward": 30, "name": "Gosmas famintas"},
+    {"count": 15, "hp": 72, "speed": 80, "reward": 37, "name": "Zumbis do milharal"},
+    {"count": 17, "hp": 94, "speed": 88, "reward": 45, "name": "Abóboras malditas"},
+    {"count": 21, "hp": 125, "speed": 98, "reward": 58, "name": "Rei Abóbora"},
 ]
+# cor das partículas ao derrotar cada tipo de monstro
+KIND_COLORS = {"ghost": (235, 235, 255), "slime": PURPLE, "zombie": MINT, "pumpkin": ORANGE}
 
-def fmt_bytes(n):
-    units = ["B", "KB", "MB", "GB", "TB"]
-    value = float(max(0, n))
-    i = 0
-    while value >= 1024 and i < len(units)-1:
-        value /= 1024
-        i += 1
-    if i == 0:
-        return f"{int(value)} {units[i]}"
-    return f"{value:.2f} {units[i]}"
+def fmt_money(n):
+    return str(int(max(0, n)))
 
 def draw_text(text, x, y, color=WHITE, font=FONT, surface=screen):
     surface.blit(font.render(str(text), True, color), (x, y))
+
+def draw_outlined(text, font, color, center, outline=(20, 8, 30), alpha=255):
+    base = font.render(text, True, color)
+    edge = font.render(text, True, outline)
+    w, h = base.get_size()
+    surf = pygame.Surface((w + 6, h + 6), pygame.SRCALPHA)
+    for dx in (0, 3, 6):
+        for dy in (0, 3, 6):
+            if (dx, dy) != (3, 3):
+                surf.blit(edge, (dx, dy))
+    surf.blit(base, (3, 3))
+    surf.set_alpha(alpha)
+    screen.blit(surf, (center[0] - surf.get_width()//2, center[1] - surf.get_height()//2))
+
+def draw_pumpkin(surface, x, y, r, face=False):
+    """Desenha uma abóbora simples (usada como ícone da moeda e nos inimigos)."""
+    pygame.draw.ellipse(surface, (230, 112, 24), (x-r, y-int(r*.8), r*2, int(r*1.7)))
+    pygame.draw.ellipse(surface, (255, 150, 50), (x-int(r*.55), y-int(r*.8), int(r*1.1), int(r*1.7)))
+    pygame.draw.ellipse(surface, (200, 90, 18), (x-int(r*.2), y-int(r*.8), int(r*.4), int(r*1.7)))
+    pygame.draw.rect(surface, (70, 120, 40), (x-2, y-int(r*.8)-int(r*.4), 4, max(3, int(r*.45))))
+    if face:
+        e = max(2, r//4)
+        pygame.draw.polygon(surface, (255, 230, 120), [(x-r//2, y-1), (x-r//5, y-1), (x-r//3, y-e-2)])
+        pygame.draw.polygon(surface, (255, 230, 120), [(x+r//2, y-1), (x+r//5, y-1), (x+r//3, y-e-2)])
+        pygame.draw.arc(surface, (255, 230, 120), (x-r//2, y, r, r//2+2), math.pi, 2*math.pi, 2)
+
 
 def dist(a, b):
     return math.hypot(a[0]-b[0], a[1]-b[1])
@@ -77,7 +100,7 @@ def point_segment_distance(p, a, b):
 def on_path(pos):
     return any(point_segment_distance(pos, PATH[i], PATH[i+1]) < 28 for i in range(len(PATH)-1))
 
-class Malware:
+class Monster:
     def __init__(self, wave):
         spec = WAVES[wave]
         self.x, self.y = PATH[0]
@@ -88,7 +111,9 @@ class Malware:
         self.speed = spec["speed"] * random.uniform(.88, 1.12)
         self.reward = spec["reward"]
         self.radius = random.choice([10, 11, 12]) + wave // 3
-        self.kind = random.choice(["virus", "bug", "trojan"]) if wave < 3 else random.choice(["virus", "trojan", "worm"])
+        self.kind = random.choice(["ghost", "slime", "zombie"]) if wave < 3 else random.choice(["ghost", "zombie", "pumpkin"])
+        self.slime_color = random.choice([(150, 78, 210), (255, 150, 40)])
+        self.phase = random.uniform(0, 6.28)
         self.dead = False
         self.reached = False
         self.hit_flash = 0
@@ -112,16 +137,44 @@ class Malware:
         self.hit_flash = max(0, self.hit_flash-dt)
 
     def draw(self, surface):
-        color = RED if self.kind == "trojan" else PURPLE if self.kind == "worm" else (255, 105, 130)
+        r = self.radius
+        bob = int(math.sin(pygame.time.get_ticks()/140 + self.phase) * 2)
+        x, y = int(self.x), int(self.y) + bob
+        dark = (28, 14, 36)
+        if self.kind == "ghost":
+            body = (226, 230, 255)
+            pygame.draw.circle(surface, body, (x, y-2), r)
+            pygame.draw.rect(surface, body, (x-r, y-2, r*2, r))
+            for i in range(3):
+                pygame.draw.circle(surface, body, (x-r+int(r*(i*2+1)/3), y+r-2), max(3, r//3))
+            pygame.draw.circle(surface, dark, (x-r//3, y-4), max(2, r//5))
+            pygame.draw.circle(surface, dark, (x+r//3, y-4), max(2, r//5))
+            pygame.draw.circle(surface, dark, (x, y+1), max(2, r//5), 1)
+        elif self.kind == "slime":
+            pygame.draw.ellipse(surface, self.slime_color, (x-r-2, y-int(r*.6), r*2+4, int(r*1.5)))
+            light = tuple(min(255, c+55) for c in self.slime_color)
+            pygame.draw.ellipse(surface, light, (x-r//2, y-int(r*.45), r//2, r//3))
+            pygame.draw.circle(surface, dark, (x-r//3, y+1), max(2, r//5))
+            pygame.draw.circle(surface, dark, (x+r//3, y+1), max(2, r//5))
+        elif self.kind == "zombie":
+            pygame.draw.rect(surface, (74, 92, 128), (x-r//2-1, y+r//3, r+2, int(r*.9)), border_radius=3)
+            pygame.draw.rect(surface, (118, 168, 96), (x-r-2, y+r//3, 4, r//2+2))   # braços
+            pygame.draw.rect(surface, (118, 168, 96), (x+r-2, y+r//3, 4, r//2+2))
+            pygame.draw.circle(surface, (122, 176, 100), (x, y-2), r-1)
+            pygame.draw.circle(surface, (220, 60, 60), (x-r//3, y-4), max(2, r//5))
+            pygame.draw.circle(surface, (220, 60, 60), (x+r//3, y-4), max(2, r//5))
+            pygame.draw.line(surface, dark, (x-r//3, y+r//3), (x+r//3, y+r//3), 2)
+        else:
+            draw_pumpkin(surface, x, y, r, face=True)
+            pygame.draw.rect(surface, (118, 168, 96), (x-r-3, y+2, 4, r//2))
+            pygame.draw.rect(surface, (118, 168, 96), (x+r-1, y+2, 4, r//2))
         if self.hit_flash > 0:
-            color = WHITE
-        x, y = int(self.x), int(self.y)
-        pygame.draw.circle(surface, color, (x, y), self.radius)
-        pygame.draw.circle(surface, (35, 18, 42), (x, y), max(3, self.radius//2))
-        # HP bar
+            pygame.draw.circle(surface, WHITE, (x, y), r+2, 3)
+        # barra de vida
+        y0 = int(self.y)
         w = 30
-        pygame.draw.rect(surface, (38, 48, 62), (x-w//2, y-self.radius-9, w, 4), border_radius=2)
-        pygame.draw.rect(surface, MINT, (x-w//2, y-self.radius-9, int(w*max(0,self.hp/self.max_hp)), 4), border_radius=2)
+        pygame.draw.rect(surface, (38, 24, 52), (x-w//2, y0-r-11, w, 4), border_radius=2)
+        pygame.draw.rect(surface, MINT, (x-w//2, y0-r-11, int(w*max(0, self.hp/self.max_hp)), 4), border_radius=2)
 
 class Tower:
     def __init__(self, pos, kind):
@@ -159,12 +212,33 @@ class Tower:
     def draw(self, surface, selected=False):
         x, y = int(self.x), int(self.y)
         if selected:
-            pygame.draw.circle(surface, (*self.color,), (x,y), int(self.range), 1)
-        pygame.draw.circle(surface, (18, 38, 55), (x,y), 20)
-        pygame.draw.circle(surface, self.color, (x,y), 15, 3)
-        pygame.draw.line(surface, self.color, (x,y),
-                         (x+int(math.cos(self.angle)*19), y+int(math.sin(self.angle)*19)), 5)
-        draw_text(str(self.level), x-5, y-8, WHITE, SMALL)
+            pygame.draw.circle(surface, self.color, (x, y), int(self.range), 1)
+        pygame.draw.circle(surface, (42, 26, 54), (x, y), 20)
+        pygame.draw.circle(surface, self.color, (x, y), 20, 3)
+        tip = (x+int(math.cos(self.angle)*20), y+int(math.sin(self.angle)*20))
+        pygame.draw.line(surface, self.color, (x, y), tip, 4)
+        pygame.draw.circle(surface, WHITE, tip, 3)
+        if self.kind == 0:      # Espantalho
+            pygame.draw.circle(surface, (228, 198, 120), (x, y+2), 7)
+            pygame.draw.rect(surface, (120, 80, 44), (x-10, y-5, 20, 3))
+            pygame.draw.rect(surface, (140, 94, 52), (x-6, y-13, 12, 9), border_radius=2)
+            pygame.draw.circle(surface, (40, 24, 30), (x-3, y+1), 1)
+            pygame.draw.circle(surface, (40, 24, 30), (x+3, y+1), 1)
+        elif self.kind == 1:    # Lanterna
+            pygame.draw.rect(surface, (74, 50, 36), (x-7, y-9, 14, 18), border_radius=3)
+            pygame.draw.circle(surface, (255, 190, 80), (x, y), 5)
+            pygame.draw.circle(surface, (255, 240, 170), (x, y+1), 2)
+            pygame.draw.polygon(surface, (50, 34, 26), [(x-8, y-9), (x+8, y-9), (x, y-14)])
+        else:                   # Gárgula
+            pygame.draw.polygon(surface, (70, 92, 78), [(x-14, y-8), (x-6, y-2), (x-6, y+6), (x-15, y+2)])
+            pygame.draw.polygon(surface, (70, 92, 78), [(x+14, y-8), (x+6, y-2), (x+6, y+6), (x+15, y+2)])
+            pygame.draw.ellipse(surface, (112, 140, 118), (x-7, y-8, 14, 17))
+            pygame.draw.polygon(surface, (80, 104, 88), [(x-6, y-7), (x-4, y-13), (x-1, y-7)])
+            pygame.draw.polygon(surface, (80, 104, 88), [(x+6, y-7), (x+4, y-13), (x+1, y-7)])
+            pygame.draw.circle(surface, MINT, (x-3, y-2), 2)
+            pygame.draw.circle(surface, MINT, (x+3, y-2), 2)
+        pygame.draw.circle(surface, (22, 12, 32), (x+15, y+15), 9)
+        draw_text(str(self.level), x+11, y+7, WHITE, SMALL)
 
 class Bullet:
     def __init__(self, start, target, damage, color):
@@ -192,7 +266,124 @@ class Bullet:
             self.y += dy/length*self.speed*dt
 
     def draw(self, surface):
-        pygame.draw.circle(surface, self.color, (int(self.x),int(self.y)), 4)
+        pygame.draw.circle(surface, self.color, (int(self.x),int(self.y)), 5)
+        pygame.draw.circle(surface, WHITE, (int(self.x),int(self.y)), 2)
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+class TitleScreen:
+    """Tela inicial: arte em 1100x720, texto piscando e brasas flutuando."""
+    FADE_IN = 1.2
+
+    def __init__(self):
+        self.time = 0.0
+        self.image = None
+        path = os.path.join(BASE_DIR, "assets", "tela_inicial.png")
+        try:
+            img = pygame.image.load(path).convert()
+            if img.get_size() != (WIDTH, HEIGHT):
+                img = pygame.transform.smoothscale(img, (WIDTH, HEIGHT))
+            self.image = img
+        except (pygame.error, FileNotFoundError):
+            self.image = None   # sem a imagem, usa o fundo de reserva
+        rnd = random.Random(5)
+        # brasas: [x, y, velocidade, fase, tamanho]
+        self.embers = [[rnd.uniform(0, WIDTH), rnd.uniform(0, HEIGHT), rnd.uniform(14, 34),
+                        rnd.uniform(0, 6.28), rnd.choice([1, 2, 2, 3])] for _ in range(36)]
+
+    def update(self, dt):
+        self.time += dt
+        for e in self.embers:
+            e[1] -= e[2] * dt
+            e[0] += math.sin(self.time * 1.3 + e[3]) * 12 * dt
+            if e[1] < -5:
+                e[0], e[1] = random.uniform(0, WIDTH), HEIGHT + 5
+
+    def draw(self):
+        if self.image:
+            screen.blit(self.image, (0, 0))
+        else:
+            screen.fill(BG)
+            draw_outlined("HARVEST DEFENSE", HUGE, ORANGE, (WIDTH//2, HEIGHT//2 - 40))
+            draw_outlined("Proteja a fazenda. Defenda a colheita.", FONT, WHITE, (WIDTH//2, HEIGHT//2 + 4))
+        for x, y, _, ph, size in self.embers:
+            glow = 0.5 + 0.5 * math.sin(self.time * 3 + ph)
+            col = (255, int(120 + 90 * glow), 40)
+            pygame.draw.circle(screen, col, (int(x), int(y)), size)
+        if self.time > 0.8:
+            pulse = 0.5 + 0.5 * math.sin((self.time - 0.8) * 4.2)
+            draw_outlined("Aperte qualquer botão para iniciar", BIG, WHITE,
+                          (WIDTH//2, 690), alpha=int(45 + 210 * pulse))
+        if self.time < self.FADE_IN:
+            fade = pygame.Surface((WIDTH, HEIGHT))
+            fade.set_alpha(int(255 * (1 - self.time / self.FADE_IN)))
+            screen.blit(fade, (0, 0))
+
+# ---------- cenário (desenhado uma vez e reaproveitado) ----------
+_MAP_CACHE = None
+
+def build_map_surface():
+    surf = pygame.Surface((WIDTH, HEIGHT))
+    surf.fill(BG)
+    pygame.draw.rect(surf, GRASS_A, MAP_RECT, border_radius=12)
+    surf.set_clip(MAP_RECT)
+    rnd = random.Random(11)
+    for gx in range(MAP_RECT.left, MAP_RECT.right, 28):
+        for gy in range(MAP_RECT.top, MAP_RECT.bottom, 28):
+            if ((gx - MAP_RECT.left)//28 + (gy - MAP_RECT.top)//28) % 2:
+                pygame.draw.rect(surf, GRASS_B, (gx, gy, 28, 28))
+    for _ in range(220):   # tufos de grama
+        gx, gy = rnd.randint(MAP_RECT.left, MAP_RECT.right), rnd.randint(MAP_RECT.top, MAP_RECT.bottom)
+        pygame.draw.line(surf, (24, 52, 40), (gx, gy), (gx-2, gy-5), 1)
+        pygame.draw.line(surf, (24, 52, 40), (gx, gy), (gx+2, gy-5), 1)
+    # estrada de terra
+    pygame.draw.lines(surf, DIRT_EDGE, False, PATH, 46)
+    for px, py in PATH:
+        pygame.draw.circle(surf, DIRT_EDGE, (px, py), 23)
+    pygame.draw.lines(surf, DIRT, False, PATH, 38)
+    for px, py in PATH:
+        pygame.draw.circle(surf, DIRT, (px, py), 19)
+    for _ in range(140):   # pedrinhas
+        i = rnd.randrange(len(PATH)-1)
+        a, b = PATH[i], PATH[i+1]
+        t = rnd.random()
+        px = a[0] + (b[0]-a[0])*t + rnd.uniform(-13, 13)
+        py = a[1] + (b[1]-a[1])*t + rnd.uniform(-13, 13)
+        pygame.draw.circle(surf, (132, 100, 72), (int(px), int(py)), rnd.choice([1, 2]))
+    # decoração (fora da estrada)
+    placed = 0
+    tries = 0
+    while placed < 34 and tries < 600:
+        tries += 1
+        x = rnd.randint(MAP_RECT.left + 16, MAP_RECT.right - 16)
+        y = rnd.randint(MAP_RECT.top + 16, MAP_RECT.bottom - 16)
+        if any(point_segment_distance((x, y), PATH[i], PATH[i+1]) < 52 for i in range(len(PATH)-1)):
+            continue
+        if dist((x, y), CORE) < 80:
+            continue
+        kind = rnd.choice(["pumpkin", "pumpkin", "hay", "tomb", "tree", "mush"])
+        if kind == "pumpkin":
+            draw_pumpkin(surf, x, y, rnd.choice([7, 8, 9]), face=rnd.random() < .5)
+        elif kind == "hay":
+            pygame.draw.rect(surf, (196, 160, 70), (x-11, y-8, 22, 16), border_radius=3)
+            for k in (-5, 0, 5):
+                pygame.draw.line(surf, (150, 118, 48), (x+k, y-8), (x+k, y+8), 1)
+        elif kind == "tomb":
+            pygame.draw.rect(surf, (110, 112, 128), (x-8, y-10, 16, 20), border_top_left_radius=8, border_top_right_radius=8)
+            pygame.draw.line(surf, (70, 72, 88), (x, y-6), (x, y+2), 2)
+            pygame.draw.line(surf, (70, 72, 88), (x-3, y-3), (x+3, y-3), 2)
+        elif kind == "tree":
+            pygame.draw.line(surf, (60, 40, 40), (x, y+14), (x, y-8), 5)
+            for dx, dy in ((-12, -18), (10, -16), (-6, -22), (4, -24)):
+                pygame.draw.line(surf, (60, 40, 40), (x, y-6), (x+dx, y+dy), 2)
+        else:
+            pygame.draw.rect(surf, (230, 220, 210), (x-1, y-2, 3, 6))
+            pygame.draw.ellipse(surf, (170, 70, 200), (x-6, y-8, 12, 8))
+        placed += 1
+    surf.set_clip(None)
+    pygame.draw.rect(surf, BORDER, MAP_RECT, 2, border_radius=12)
+    return surf
 
 class Game:
     def __init__(self):
@@ -238,7 +429,7 @@ class Game:
 
     def use_special(self):
         if self.special_cooldown > 0:
-            self.notify("Pulso de firewall recarregando.")
+            self.notify("O pulso lunar está recarregando.")
             return
         count = 0
         for e in self.enemies:
@@ -252,23 +443,23 @@ class Game:
                     count += 1
         self.special_cooldown = 12
         self.special_flash = .4
-        self.notify(f"Pulso de firewall! {count} malware(s) eliminado(s).", 2)
+        self.notify(f"Pulso lunar! {count} monstro(s) eliminado(s).", 2)
 
     def buy_tower(self, pos):
         if not MAP_RECT.collidepoint(pos) or on_path(pos):
-            self.notify("Posicione a torre fora da rota dos malwares.")
+            self.notify("Posicione a torre fora da estrada dos monstros.")
             return
         if any(dist(pos,(t.x,t.y)) < 40 for t in self.towers):
             self.notify("As torres precisam de espaço entre si.")
             return
         spec = TOWER_TYPES[self.selected_kind]
         if self.money < spec["cost"]:
-            self.notify("Bytes insuficientes para essa torre.")
+            self.notify("Abóboras insuficientes para essa torre.")
             return
         self.money -= spec["cost"]
         self.towers.append(Tower(pos, self.selected_kind))
         self.selected_tower = self.towers[-1]
-        self.notify(f"{spec['name']} instalada!")
+        self.notify(f"Torre posicionada: {spec['name']}!")
 
     def upgrade_selected(self):
         t = self.selected_tower
@@ -277,7 +468,7 @@ class Game:
             return
         cost = int(t.cost * (0.8 + .65*t.level))
         if self.money < cost:
-            self.notify(f"Melhoria custa {fmt_bytes(cost)}.")
+            self.notify(f"Melhoria custa {fmt_money(cost)} abóboras.")
             return
         self.money -= cost
         t.upgrade()
@@ -289,7 +480,7 @@ class Game:
             return
         cost = self.tree_costs[index]
         if self.money < cost:
-            self.notify(f"Árvore de habilidades: precisa de {fmt_bytes(cost)}.")
+            self.notify(f"Árvore de habilidades: precisa de {fmt_money(cost)} abóboras.")
             return
         self.money -= cost
         self.unlocked[index] = True
@@ -301,7 +492,7 @@ class Game:
             self.fast_fire = .78
             for t in self.towers:
                 t.rate *= .78
-        self.notify(["Cibersegurança: dano +35%.", "Criptomineração: recompensa +30%.", "Overclock: torres atacam mais rápido."][index], 4)
+        self.notify(["Amuleto sombrio: dano +35%.", "Colheita farta: recompensa +30%.", "Lanternas acesas: torres atacam mais rápido."][index], 4)
 
     def update(self, dt):
         self.message_time = max(0, self.message_time-dt)
@@ -313,7 +504,7 @@ class Game:
             self.spawn_timer -= dt
             spec = WAVES[self.wave]
             if self.spawned < spec["count"] and self.spawn_timer <= 0:
-                self.enemies.append(Malware(self.wave))
+                self.enemies.append(Monster(self.wave))
                 self.spawned += 1
                 self.spawn_timer = max(.24, .86 - self.wave*.1)
             if self.spawned >= spec["count"] and not any(not e.dead and not e.reached for e in self.enemies):
@@ -321,17 +512,17 @@ class Game:
                 self.wave += 1
                 bonus = 80 + self.wave*35
                 self.money += bonus
-                self.notify(f"Fase concluída! Bônus: {fmt_bytes(bonus)}. Pressione ESPAÇO.", 5)
+                self.notify(f"Fase concluída! Bônus: {fmt_money(bonus)} abóboras. Pressione ESPAÇO.", 5)
                 if self.wave >= len(WAVES):
                     self.completed = True
-                    self.notify("SISTEMA PROTEGIDO — Você venceu!", 10)
+                    self.notify("FAZENDA PROTEGIDA — Você venceu!", 10)
         for e in self.enemies:
             if not e.dead and not e.reached:
                 e.update(dt)
             if e.reached and not e.dead:
                 e.dead = True
                 self.core_hp -= 10 + self.wave*2
-                self.notify("Malware atingiu o núcleo! Integridade reduzida.", 2)
+                self.notify("Um monstro invadiu o celeiro! Integridade reduzida.", 2)
                 if self.core_hp <= 0:
                     self.lost = True
         for t in self.towers:
@@ -353,23 +544,29 @@ class Game:
             p[0] += p[2]*dt; p[1] += p[3]*dt; p[4] -= dt
         self.particles = [p for p in self.particles if p[4] > 0]
 
+    def draw_barn(self):
+        cx, cy = CORE
+        pygame.draw.circle(screen, (46, 30, 62), CORE, 38)
+        pygame.draw.rect(screen, (140, 42, 44), (cx-22, cy-12, 44, 34), border_radius=3)
+        pygame.draw.polygon(screen, (92, 28, 32), [(cx-27, cy-10), (cx, cy-34), (cx+27, cy-10)])
+        pygame.draw.polygon(screen, (60, 18, 22), [(cx-27, cy-10), (cx, cy-34), (cx+27, cy-10)], 2)
+        pygame.draw.rect(screen, (70, 24, 28), (cx-8, cy+3, 16, 19))
+        pygame.draw.line(screen, (230, 210, 190), (cx-8, cy+3), (cx+8, cy+22), 1)
+        pygame.draw.line(screen, (230, 210, 190), (cx+8, cy+3), (cx-8, cy+22), 1)
+        pygame.draw.circle(screen, (255, 220, 120), (cx, cy-14), 4)
+        ok = self.core_hp > 35
+        w = 50
+        pygame.draw.rect(screen, (38, 24, 52), (cx-w//2, cy-48, w, 6), border_radius=3)
+        pygame.draw.rect(screen, MINT if ok else RED, (cx-w//2, cy-48, int(w*max(0, self.core_hp)/100), 6), border_radius=3)
+
     def draw_map(self):
-        pygame.draw.rect(screen, (11,22,36), MAP_RECT, border_radius=12)
-        for x in range(MAP_RECT.left, MAP_RECT.right, 28):
-            pygame.draw.line(screen, GRID, (x,MAP_RECT.top), (x,MAP_RECT.bottom))
-        for y in range(MAP_RECT.top, MAP_RECT.bottom, 28):
-            pygame.draw.line(screen, GRID, (MAP_RECT.left,y), (MAP_RECT.right,y))
-        pygame.draw.lines(screen, (30,67,86), False, PATH, 34)
-        pygame.draw.lines(screen, (38,104,119), False, PATH, 3)
-        for x,y in PATH:
-            pygame.draw.circle(screen, (45,98,116), (x,y), 5)
-        # Core
-        pygame.draw.circle(screen, (22,48,68), CORE, 31)
-        pygame.draw.circle(screen, MINT if self.core_hp > 35 else RED, CORE, 24, 3)
-        pygame.draw.rect(screen, (20,38,55), (CORE[0]-16,CORE[1]-12,32,24), border_radius=4)
-        draw_text("PC", CORE[0]-13, CORE[1]-10, WHITE, SMALL)
+        global _MAP_CACHE
+        if _MAP_CACHE is None:
+            _MAP_CACHE = build_map_surface()
+        screen.blit(_MAP_CACHE, (0, 0))
+        self.draw_barn()
         if self.special_flash > 0:
-            pygame.draw.circle(screen, CYAN, CORE, int(50+(0.4-self.special_flash)*220), 3)
+            pygame.draw.circle(screen, (255, 240, 170), CORE, int(50+(0.4-self.special_flash)*220), 3)
         for t in self.towers:
             t.draw(screen, t is self.selected_tower)
         for e in self.enemies:
@@ -377,50 +574,54 @@ class Game:
         for b in self.bullets:
             b.draw(screen)
         for p in self.particles:
-            color = PURPLE if p[5] in ("worm","trojan") else MINT
+            color = KIND_COLORS.get(p[5], MINT)
             pygame.draw.circle(screen, color, (int(p[0]),int(p[1])), max(1,int(4*p[4]/.35)))
 
     def draw_tree(self):
         overlay = pygame.Surface((WIDTH,HEIGHT), pygame.SRCALPHA)
-        overlay.fill((2,8,18,220))
+        overlay.fill((8,2,16,220))
         screen.blit(overlay,(0,0))
         pygame.draw.rect(screen, PANEL, (245,145,610,430), border_radius=16)
         pygame.draw.rect(screen, BORDER, (245,145,610,430), 2, border_radius=16)
-        draw_text("ÁRVORE DE HABILIDADES", 295, 168, MINT, BIG)
+        draw_text("ÁRVORE DE HABILIDADES", 295, 168, ORANGE, BIG)
         draw_text("Escolha caminhos diferentes para adaptar sua defesa.", 295, 207, MUTED, SMALL)
         nodes = [
-            (280,265,"1  CIBERSEGURANÇA","Dano das torres +35%",self.unlocked[0],self.tree_costs[0]),
-            (280,350,"2  CRIPTOMINERAÇÃO","Recompensas +30%",self.unlocked[1],self.tree_costs[1]),
-            (280,435,"3  OVERCLOCK","Torres atacam mais rápido",self.unlocked[2],self.tree_costs[2]),
+            (280,265,"1  AMULETO SOMBRIO","Dano das torres +35%",self.unlocked[0],self.tree_costs[0]),
+            (280,350,"2  COLHEITA FARTA","Recompensas +30%",self.unlocked[1],self.tree_costs[1]),
+            (280,435,"3  LANTERNAS ACESAS","Torres atacam mais rápido",self.unlocked[2],self.tree_costs[2]),
         ]
         for x,y,title,desc,owned,cost in nodes:
-            pygame.draw.rect(screen,(20,52,63) if owned else (22,34,51),(x,y,535,65),border_radius=9)
+            pygame.draw.rect(screen,(44,56,40) if owned else (36,24,54),(x,y,535,65),border_radius=9)
             pygame.draw.rect(screen,MINT if owned else BORDER,(x,y,535,65),2,border_radius=9)
             draw_text(title,x+16,y+9,MINT if owned else WHITE,FONT)
             draw_text(desc,x+16,y+37,MUTED,SMALL)
-            draw_text("DESBLOQUEADO" if owned else fmt_bytes(cost),x+370,y+24,MINT if owned else ORANGE,SMALL)
+            draw_text("DESBLOQUEADO" if owned else f"{fmt_money(cost)} abóboras",x+350,y+24,MINT if owned else ORANGE,SMALL)
         draw_text("Clique em um caminho para desbloquear. ESC para voltar.", 295, 530, MUTED, SMALL)
 
     def draw_ui(self):
         pygame.draw.rect(screen, PANEL, (0,0,WIDTH,68))
-        draw_text("BYTE DEFENSE", 24, 14, MINT, BIG)
-        draw_text(f"BYTES  {fmt_bytes(self.money)}", 300, 16, WHITE, FONT)
-        draw_text(f"NÚCLEO  {self.core_hp}%", 500, 16, MINT if self.core_hp>35 else RED, FONT)
-        draw_text(f"FASE  {min(self.wave+1,5)}/5", 675, 16, WHITE, FONT)
-        draw_text(f"ELIMINADOS  {self.total_kills}", 820, 16, CYAN, FONT)
-        # Bottom panel
+        pygame.draw.line(screen, BORDER, (0,68),(WIDTH,68),2)
+        draw_pumpkin(screen, 38, 33, 12, face=True)
+        draw_text("HARVEST DEFENSE", 58, 18, ORANGE, BIG)
+        draw_pumpkin(screen, 346, 27, 8)
+        draw_text(f"ABÓBORAS  {fmt_money(self.money)}", 362, 16, WHITE, FONT)
+        draw_text(f"CELEIRO  {self.core_hp}%", 545, 16, MINT if self.core_hp>35 else RED, FONT)
+        draw_text(f"FASE  {min(self.wave+1,5)}/5", 705, 16, WHITE, FONT)
+        draw_text(f"ELIMINADOS  {self.total_kills}", 845, 16, CYAN, FONT)
+        # Painel inferior
         pygame.draw.rect(screen, PANEL, (0,565,WIDTH,155))
         pygame.draw.line(screen, BORDER, (0,565),(WIDTH,565),2)
         draw_text("TORRES (Q / W / E para selecionar)", 24, 577, MUTED, SMALL)
         for i,spec in enumerate(TOWER_TYPES):
             x = 24+i*210
             selected = self.selected_kind == i
-            pygame.draw.rect(screen,(28,57,74) if selected else (18,32,49),(x,602,195,70),border_radius=9)
+            pygame.draw.rect(screen,(52,34,72) if selected else (36,24,54),(x,602,195,70),border_radius=9)
             pygame.draw.rect(screen,spec["color"] if selected else BORDER,(x,602,195,70),2,border_radius=9)
-            draw_text(f"{i+1}. {spec['name']}",x+12,609,spec["color"],FONT)
-            draw_text(f"{fmt_bytes(spec['cost'])}  |  {spec['desc']}",x+12,638,WHITE,SMALL)
-        draw_text("ESPAÇO: onda", 670, 585, WHITE, SMALL)
-        draw_text("F: pulso firewall", 670, 606, CYAN, SMALL)
+            draw_text(f"{i+1}. {spec['name']}",x+12,607,spec["color"],FONT)
+            draw_text(f"Custo: {fmt_money(spec['cost'])} abóboras",x+12,630,WHITE,SMALL)
+            draw_text(spec["desc"],x+12,649,MUTED,SMALL)
+        draw_text("ESPAÇO: iniciar onda", 670, 585, WHITE, SMALL)
+        draw_text("F: pulso lunar", 670, 606, (255, 240, 170), SMALL)
         draw_text(f"Pulso: {'PRONTO' if self.special_cooldown<=0 else str(int(self.special_cooldown))+'s'}", 670, 627, MINT if self.special_cooldown<=0 else MUTED, SMALL)
         draw_text("U: melhorar torre", 670, 648, WHITE, SMALL)
         draw_text("T: árvore de habilidades", 850, 585, PURPLE, SMALL)
@@ -428,22 +629,22 @@ class Game:
             t=self.selected_tower
             cost=int(t.cost*(.8+.65*t.level))
             draw_text(f"Selecionada: {TOWER_TYPES[t.kind]['name']} Nv.{t.level}",850,608,t.color,SMALL)
-            draw_text(f"Melhoria: {fmt_bytes(cost)}",850,629,WHITE,SMALL)
+            draw_text(f"Melhoria: {fmt_money(cost)} abóboras",850,629,WHITE,SMALL)
         else:
             draw_text("Clique numa torre para",850,608,MUTED,SMALL)
             draw_text("ver detalhes e melhorá-la.",850,628,MUTED,SMALL)
         if self.message_time > 0:
             text = FONT.render(self.message, True, WHITE)
             box = pygame.Rect(WIDTH//2-text.get_width()//2-14, 82, text.get_width()+28, 32)
-            pygame.draw.rect(screen,(23,43,61),box,border_radius=8)
+            pygame.draw.rect(screen,(40,26,60),box,border_radius=8)
             pygame.draw.rect(screen,BORDER,box,1,border_radius=8)
             screen.blit(text,(box.x+14,box.y+6))
         if self.completed or self.lost:
-            veil=pygame.Surface((WIDTH,HEIGHT),pygame.SRCALPHA); veil.fill((2,7,15,205)); screen.blit(veil,(0,0))
-            title="SISTEMA PROTEGIDO!" if self.completed else "NÚCLEO COMPROMETIDO"
+            veil=pygame.Surface((WIDTH,HEIGHT),pygame.SRCALPHA); veil.fill((8,3,16,205)); screen.blit(veil,(0,0))
+            title="FAZENDA PROTEGIDA!" if self.completed else "A COLHEITA FOI PERDIDA"
             col=MINT if self.completed else RED
-            txt=BIG.render(title,True,col); screen.blit(txt,(WIDTH//2-txt.get_width()//2,260))
-            sub=FONT.render("ENTER para jogar novamente  |  ESC para sair",True,WHITE)
+            txt=HUGE.render(title,True,col); screen.blit(txt,(WIDTH//2-txt.get_width()//2,260))
+            sub=FONT.render("ENTER para jogar novamente  |  ESC para o menu",True,WHITE)
             screen.blit(sub,(WIDTH//2-sub.get_width()//2,315))
 
     def draw(self):
@@ -453,19 +654,228 @@ class Game:
         if self.tree_open:
             self.draw_tree()
 
+def toggle_fullscreen():
+    try:
+        pygame.display.toggle_fullscreen()
+    except pygame.error:
+        pass
+
+def is_fullscreen():
+    surf = pygame.display.get_surface()
+    return bool(surf and surf.get_flags() & pygame.FULLSCREEN)
+
+
+class MenuScreen:
+    """Menu principal: arte com os botões; seleção por mouse ou teclado."""
+    ITEMS = [("JOGAR", "play"), ("CONFIGURAÇÕES", "settings"), ("COMO JOGAR", "howto"), ("SAIR", "quit")]
+    RECTS = [pygame.Rect(51, 325, 247, 45), pygame.Rect(51, 379, 247, 44),
+             pygame.Rect(51, 431, 247, 44), pygame.Rect(51, 485, 247, 41)]
+    FADE_IN = 0.5
+    GREEN = (120, 255, 130)
+
+    def __init__(self):
+        self.time = 0.0
+        self.sel = 0
+        self.panel = None   # None | "settings" | "howto"
+        self.image = None
+        path = os.path.join(BASE_DIR, "assets", "menu_principal.png")
+        try:
+            img = pygame.image.load(path).convert()
+            if img.get_size() != (WIDTH, HEIGHT):
+                img = pygame.transform.smoothscale(img, (WIDTH, HEIGHT))
+            self.image = img
+        except (pygame.error, FileNotFoundError):
+            self.image = None
+
+    def enter(self):
+        self.time = 0.0
+        self.panel = None
+
+    def update(self, dt):
+        self.time += dt
+
+    def activate(self, i):
+        action = self.ITEMS[i][1]
+        if action in ("play", "quit"):
+            return action
+        self.panel = action
+        return None
+
+    def handle_event(self, event):
+        if self.panel:
+            back = False
+            if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE, pygame.K_BACKSPACE):
+                back = True
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self.panel == "settings" and self.toggle_rect().collidepoint(event.pos):
+                    toggle_fullscreen()
+                elif self.back_rect().collidepoint(event.pos) or not self.panel_rect().collidepoint(event.pos):
+                    back = True
+            if back:
+                self.panel = None
+            return None
+        if event.type == pygame.MOUSEMOTION:
+            for i, r in enumerate(self.RECTS):
+                if r.collidepoint(event.pos):
+                    self.sel = i
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for i, r in enumerate(self.RECTS):
+                if r.collidepoint(event.pos):
+                    self.sel = i
+                    return self.activate(i)
+        elif event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_UP, pygame.K_w):
+                self.sel = (self.sel - 1) % len(self.ITEMS)
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                self.sel = (self.sel + 1) % len(self.ITEMS)
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                return self.activate(self.sel)
+            elif event.key == pygame.K_ESCAPE:
+                return "title"
+        return None
+
+    # --- painéis ---
+    def panel_rect(self):
+        return pygame.Rect(190, 60, 720, 600) if self.panel == "howto" else pygame.Rect(320, 200, 460, 330)
+
+    def back_rect(self):
+        r = self.panel_rect()
+        return pygame.Rect(r.centerx - 70, r.bottom - 58, 140, 38)
+
+    def toggle_rect(self):
+        r = self.panel_rect()
+        return pygame.Rect(r.right - 190, r.top + 98, 150, 38)
+
+    def draw_panel_frame(self, title):
+        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        veil.fill((8, 3, 16, 200))
+        screen.blit(veil, (0, 0))
+        r = self.panel_rect()
+        pygame.draw.rect(screen, PANEL, r, border_radius=16)
+        pygame.draw.rect(screen, BORDER, r, 2, border_radius=16)
+        draw_text(title, r.x + 28, r.y + 22, ORANGE, BIG)
+        b = self.back_rect()
+        pygame.draw.rect(screen, (52, 34, 72), b, border_radius=9)
+        pygame.draw.rect(screen, MINT, b, 2, border_radius=9)
+        t = FONT.render("Voltar", True, WHITE)
+        screen.blit(t, (b.centerx - t.get_width()//2, b.centery - t.get_height()//2))
+
+    def draw_howto(self):
+        self.draw_panel_frame("COMO JOGAR")
+        x, y = 218, 134
+        draw_text("OBJETIVO", x, y, MINT, FONT)
+        draw_text("Proteja o celeiro de 5 ondas de monstros. Se a integridade", x, y+26, WHITE, SMALL)
+        draw_text("do celeiro chegar a 0%, a colheita é perdida.", x, y+46, WHITE, SMALL)
+        draw_text("TORRES", x, y+84, MINT, FONT)
+        for i, spec in enumerate(TOWER_TYPES):
+            ty = y + 112 + i*24
+            pygame.draw.circle(screen, spec["color"], (x+8, ty+8), 6)
+            draw_text(f"{spec['name']} — {spec['desc']} (custo {spec['cost']})", x+24, ty, WHITE, SMALL)
+        draw_text("CONTROLES", x, y+200, MINT, FONT)
+        controls = [
+            ("Clique no painel / Q W E", "escolher a torre"),
+            ("Clique no mapa", "posicionar (fora da estrada)"),
+            ("Clique em uma torre", "selecionar e ver o alcance"),
+            ("U", "melhorar a torre selecionada"),
+            ("ESPAÇO", "iniciar a próxima onda"),
+            ("F", "pulso lunar (recarrega)"),
+            ("T  e  1 / 2 / 3", "árvore de habilidades"),
+            ("ESC", "voltar ao menu"),
+        ]
+        for i, (k, d) in enumerate(controls):
+            cy = y + 230 + i*24
+            draw_text(k, x, cy, ORANGE, SMALL)
+            draw_text(d, x+250, cy, WHITE, SMALL)
+        draw_text("Moedas: abóboras. Elas vêm de monstros derrotados e de ondas concluídas.", x, y+430, MUTED, SMALL)
+
+    def draw_settings(self):
+        self.draw_panel_frame("CONFIGURAÇÕES")
+        r = self.panel_rect()
+        draw_text("Tela cheia  (F11)", r.x + 28, r.y + 108, WHITE, FONT)
+        tg = self.toggle_rect()
+        on = is_fullscreen()
+        pygame.draw.rect(screen, (44, 56, 40) if on else (36, 24, 54), tg, border_radius=9)
+        pygame.draw.rect(screen, MINT if on else BORDER, tg, 2, border_radius=9)
+        t = FONT.render("LIGADA" if on else "DESLIGADA", True, MINT if on else MUTED)
+        screen.blit(t, (tg.centerx - t.get_width()//2, tg.centery - t.get_height()//2))
+        draw_text("Som", r.x + 28, r.y + 168, WHITE, FONT)
+        draw_text("indisponível nesta versão", r.right - 250, r.y + 171, MUTED, SMALL)
+
+    def draw_selection(self):
+        rect = self.RECTS[self.sel]
+        pulse = 0.5 + 0.5 * math.sin(self.time * 5)
+        layer = pygame.Surface((rect.w + 40, rect.h + 40), pygame.SRCALPHA)
+        base = pygame.Rect(20, 20, rect.w, rect.h)
+        for k in range(5, 0, -1):
+            a = int((26 + 22 * pulse) * (6 - k) / 5)
+            pygame.draw.rect(layer, (*self.GREEN, a), base.inflate(k*3, k*3), 2, border_radius=9 + k)
+        pygame.draw.rect(layer, (*self.GREEN, int(34 + 22 * pulse)), base, border_radius=8)
+        pygame.draw.rect(layer, (*self.GREEN, 255), base.inflate(2, 2), 2, border_radius=9)
+        screen.blit(layer, (rect.x - 20, rect.y - 20))
+
+    def draw(self):
+        if self.image:
+            screen.blit(self.image, (0, 0))
+        else:
+            screen.fill(BG)
+            draw_outlined("HARVEST DEFENSE", HUGE, ORANGE, (WIDTH//2, 120))
+            for (label, _), r in zip(self.ITEMS, self.RECTS):
+                pygame.draw.rect(screen, (92, 62, 44), r, border_radius=8)
+                draw_outlined(label, FONT, WHITE, r.center)
+        self.draw_selection()
+        if self.panel == "howto":
+            self.draw_howto()
+        elif self.panel == "settings":
+            self.draw_settings()
+        if self.time < self.FADE_IN:
+            fade = pygame.Surface((WIDTH, HEIGHT))
+            fade.set_alpha(int(255 * (1 - self.time / self.FADE_IN)))
+            screen.blit(fade, (0, 0))
+
+
 game = Game()
+title = TitleScreen()
+menu = MenuScreen()
+state = "title"   # "title" -> tela inicial | "menu" -> menu principal | "playing" -> jogo
 running = True
 while running:
     dt = min(clock.tick(60)/1000, .04)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.KEYDOWN:
+            continue
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+            toggle_fullscreen()
+            continue
+        if state == "title":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                else:
+                    menu.enter()
+                    state = "menu"
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                menu.enter()
+                state = "menu"
+            continue
+        if state == "menu":
+            action = menu.handle_event(event)
+            if action == "play":
+                game = Game()
+                state = "playing"
+            elif action == "quit":
+                running = False
+            elif action == "title":
+                title = TitleScreen()
+                state = "title"
+            continue
+        if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 if game.tree_open:
                     game.tree_open = False
                 else:
-                    running = False
+                    menu.enter()
+                    state = "menu"
             elif game.completed or game.lost:
                 if event.key == pygame.K_RETURN:
                     game = Game()
@@ -507,8 +917,15 @@ while running:
                 for i in range(3):
                     if pygame.Rect(24+i*210,602,195,70).collidepoint(pos):
                         game.selected_kind=i
-    game.update(dt)
-    game.draw()
+    if state == "title":
+        title.update(dt)
+        title.draw()
+    elif state == "menu":
+        menu.update(dt)
+        menu.draw()
+    else:
+        game.update(dt)
+        game.draw()
     pygame.display.flip()
 
 pygame.quit()

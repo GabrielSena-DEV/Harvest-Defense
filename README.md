@@ -1,6 +1,6 @@
-# BYTE DEFENSE — jogo de defesa em Pygame
+# HARVEST DEFENSE — jogo de defesa em Pygame
 
-Protótipo inicial de tower defense com tema de segurança digital. O objetivo é proteger o núcleo (PC) de cinco ondas de malwares.
+Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco ondas de monstros: fantasmas, gosmas, zumbis e abóboras malditas.
 
 ## Requisitos
 - Python 3.10 ou superior
@@ -28,28 +28,37 @@ Protótipo inicial de tower defense com tema de segurança digital. O objetivo �
    python main.py
    ```
 
+## Telas
+- **Tela inicial**: aperte qualquer tecla ou clique para ir ao menu (ESC sai).
+- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia), Como jogar e Sair. ESC volta à tela inicial.
+- **Durante o jogo**: ESC volta ao menu. **F11** alterna tela cheia em qualquer tela.
+
 ## Controles
-- **Clique em uma torre no painel inferior** para escolhê-la; clique no mapa para construí-la.
-- **Q / W / E**: selecionar Sentinela, Firewall ou Sandbox.
+- **Clique em uma torre no painel inferior** para escolhê-la; clique no mapa para posicioná-la.
+- **Q / W / E**: selecionar Espantalho, Lanterna ou Gárgula.
 - **Clique em uma torre colocada**: selecionar para ver alcance e nível.
 - **U**: melhorar a torre selecionada.
 - **Espaço**: iniciar a próxima onda.
-- **F**: usar o pulso de firewall (habilidade especial com recarga).
+- **F**: usar o pulso lunar (habilidade especial com recarga).
 - **T**: abrir a árvore de habilidades.
 - **1 / 2 / 3** na árvore: desbloquear um caminho.
-- **ESC**: fechar a árvore ou sair.
+- **ESC**: fechar a árvore ou voltar ao menu.
 - **ENTER**: reiniciar após vitória ou derrota.
 
 ## Mecânicas incluídas
-- Cinco fases com quantidade, resistência e velocidade dos malwares crescentes.
-- Três tipos de torres com alcances, danos e cadências diferentes.
-- Moeda em bytes: conversão binária de 1024 B = 1 KB, 1024 KB = 1 MB e assim por diante.
-- Bônus por eliminar malwares e por concluir ondas.
-- Árvore de habilidades com três caminhos: dano, recompensa e velocidade de ataque.
-- Pulso especial de firewall, recarga, barras de vida, partículas e efeitos de impacto.
-- Núcleo com integridade; malwares que chegam ao final reduzem a integridade.
+- Cinco fases com quantidade, resistência e velocidade dos monstros crescentes.
+- Três torres: **Espantalho** (raio equilibrado), **Lanterna** (rajada de fogo) e **Gárgula** (ataque pesado).
+- Moeda em abóboras, com bônus por eliminar monstros e por concluir ondas.
+- Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Lanternas Acesas (velocidade de ataque).
+- Pulso lunar especial, recarga, barras de vida, partículas e efeitos de impacto.
+- O celeiro tem integridade; monstros que chegam ao final a reduzem.
+
+## Arquivos
+- `main.py` — o jogo.
+- `assets/tela_inicial.png` — arte da tela inicial (1100×720, sem texto; o texto que pisca é desenhado pelo código).
+- `assets/menu_principal.png` — arte do menu (1100×720). Os botões fazem parte da imagem; a seleção em verde é desenhada pelo código.
 
 ## Observações
-- O jogo desenha gráficos com formas do próprio Pygame e não precisa de imagens, fontes ou sons externos.
-- O som não está implementado nesta versão; isso mantém o projeto independente de arquivos de áudio. Ele pode ser adicionado posteriormente.
-- Os jogos citados servem apenas como inspiração geral. Este protótipo usa nome, código, elementos visuais e mecânicas próprias.
+- Se `assets/tela_inicial.png` ou `assets/menu_principal.png` não forem encontradas, o jogo mostra telas de reserva em texto.
+- Torres, monstros, estrada e celeiro são desenhados com formas do próprio Pygame; só a tela inicial usa imagem.
+- O som não está implementado nesta versão.
