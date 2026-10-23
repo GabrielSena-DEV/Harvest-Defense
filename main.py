@@ -7,7 +7,7 @@ import pygame
 # HARVEST DEFENSE — jogo de defesa em Pygame (fazenda + Halloween)
 # Controles: clique em uma torre no painel inferior e depois no mapa para posicioná-la.
 # Clique em uma torre já colocada para selecioná-la. Espaço: iniciar/próxima onda.
-# Q/W/E: selecionar torre. U: melhorar torre selecionada. F: pulso lunar.
+# 1-7: selecionar torre. U: melhorar torre selecionada. F: pulso lunar.
 # T: árvore de habilidades. ESC: voltar ao menu. F11: tela cheia.
 
 pygame.init()
@@ -43,6 +43,10 @@ TOWER_TYPES = [
     {"name": "Espantalho", "cost": 90, "range": 145, "damage": 18, "rate": 0.65, "color": CYAN, "desc": "Raio equilibrado"},
     {"name": "Lanterna", "cost": 145, "range": 105, "damage": 9, "rate": 0.28, "color": ORANGE, "desc": "Rajada de fogo"},
     {"name": "Gárgula", "cost": 180, "range": 175, "damage": 34, "rate": 1.15, "color": MINT, "desc": "Ataque pesado"},
+    {"name": "Lápide", "cost": 135, "range": 135, "damage": 12, "rate": 3.2, "color": (176, 178, 198), "desc": "Invoca bloqueadores", "behavior": "summon"},
+    {"name": "Milho", "cost": 125, "range": 125, "damage": 5, "rate": 0.16, "color": (255, 220, 80), "desc": "Tiro muito veloz"},
+    {"name": "Corvo", "cost": 200, "range": 225, "damage": 62, "rate": 1.8, "color": (174, 130, 220), "desc": "Precisão e alto dano", "bullet_speed": 680},
+    {"name": "Abóbora", "cost": 190, "range": 145, "damage": 28, "rate": 1.35, "color": ORANGE, "desc": "Explosão em área", "area": 48},
 ]
 WAVES = [
     {"count": 9, "hp": 38, "speed": 62, "reward": 24, "name": "Fantasminhas"},
@@ -125,7 +129,7 @@ class Monster:
         target = PATH[self.segment+1]
         dx, dy = target[0]-self.x, target[1]-self.y
         length = math.hypot(dx, dy)
-        step = self.speed * dt
+        step = self.speed * dt * getattr(self, "slow_factor", 1)
         if length <= step:
             self.x, self.y = target
             self.segment += 1
@@ -176,15 +180,61 @@ class Monster:
         pygame.draw.rect(surface, (38, 24, 52), (x-w//2, y0-r-11, w, 4), border_radius=2)
         pygame.draw.rect(surface, MINT, (x-w//2, y0-r-11, int(w*max(0, self.hp/self.max_hp)), 4), border_radius=2)
 
+class AlliedMinion:
+    def __init__(self, pos):
+        self.x, self.y = pos
+        self.hp = 28
+        self.radius = 8
+        self.speed = 112
+        self.damage = 12
+        self.attack_cooldown = 0
+        self.lifetime = 9
+        self.target = None
+        self.dead = False
+
+    def update(self, dt, enemies):
+        self.lifetime -= dt
+        self.attack_cooldown = max(0, self.attack_cooldown - dt)
+        if self.hp <= 0 or self.lifetime <= 0:
+            self.dead = True
+            return
+        candidates = [e for e in enemies if not e.dead and not e.reached]
+        if not candidates:
+            return
+        self.target = min(candidates, key=lambda e: dist((self.x, self.y), (e.x, e.y)))
+        dx, dy = self.target.x - self.x, self.target.y - self.y
+        length = math.hypot(dx, dy)
+        if length > self.radius + self.target.radius + 3:
+            step = min(length - self.radius - self.target.radius - 3, self.speed * dt)
+            self.x += dx / length * step
+            self.y += dy / length * step
+        elif self.attack_cooldown <= 0:
+            self.target.hp -= self.damage
+            self.target.hit_flash = .1
+            if self.target.hp <= 0:
+                self.target.dead = True
+            self.hp -= 10
+            self.attack_cooldown = .65
+        if self.hp <= 0 or self.lifetime <= 0:
+            self.dead = True
+
+    def draw(self, surface):
+        x, y = int(self.x), int(self.y)
+        pygame.draw.circle(surface, (28, 20, 40), (x, y), self.radius + 2)
+        pygame.draw.circle(surface, (176, 230, 170), (x, y), self.radius)
+        pygame.draw.circle(surface, (35, 45, 48), (x - 3, y - 1), 1)
+        pygame.draw.circle(surface, (35, 45, 48), (x + 3, y - 1), 1)
+
+
 class Tower:
-    def __init__(self, pos, kind):
+    def __init__(self, pos, kind, rate_multiplier=1):
         spec = TOWER_TYPES[kind]
         self.x, self.y = pos
         self.kind = kind
         self.level = 1
         self.range = spec["range"]
         self.damage = spec["damage"]
-        self.rate = spec["rate"]
+        self.rate = spec["rate"] * rate_multiplier
         self.cooldown = random.random() * .2
         self.color = spec["color"]
         self.cost = spec["cost"]
@@ -197,14 +247,20 @@ class Tower:
         self.range += 13
         self.rate *= .88
 
-    def update(self, dt, enemies, bullets):
+    def update(self, dt, enemies, bullets, minions):
         self.cooldown = max(0, self.cooldown-dt)
         candidates = [e for e in enemies if not e.dead and not e.reached and dist((self.x,self.y),(e.x,e.y)) <= self.range]
         if candidates:
             self.target = max(candidates, key=lambda e: e.segment + e.progress)
             self.angle = math.atan2(self.target.y-self.y, self.target.x-self.x)
             if self.cooldown <= 0:
-                bullets.append(Bullet((self.x,self.y), self.target, self.damage, self.color))
+                behavior = TOWER_TYPES[self.kind].get("behavior")
+                if behavior == "summon":
+                    minions.append(AlliedMinion((self.x, self.y)))
+                else:
+                    bullets.append(Bullet((self.x,self.y), self.target, self.damage, self.color,
+                                          TOWER_TYPES[self.kind].get("area", 0),
+                                          TOWER_TYPES[self.kind].get("bullet_speed", 420)))
                 self.cooldown = self.rate
         else:
             self.target = None
@@ -229,7 +285,7 @@ class Tower:
             pygame.draw.circle(surface, (255, 190, 80), (x, y), 5)
             pygame.draw.circle(surface, (255, 240, 170), (x, y+1), 2)
             pygame.draw.polygon(surface, (50, 34, 26), [(x-8, y-9), (x+8, y-9), (x, y-14)])
-        else:                   # Gárgula
+        elif self.kind == 2:    # Gárgula
             pygame.draw.polygon(surface, (70, 92, 78), [(x-14, y-8), (x-6, y-2), (x-6, y+6), (x-15, y+2)])
             pygame.draw.polygon(surface, (70, 92, 78), [(x+14, y-8), (x+6, y-2), (x+6, y+6), (x+15, y+2)])
             pygame.draw.ellipse(surface, (112, 140, 118), (x-7, y-8, 14, 17))
@@ -237,29 +293,52 @@ class Tower:
             pygame.draw.polygon(surface, (80, 104, 88), [(x+6, y-7), (x+4, y-13), (x+1, y-7)])
             pygame.draw.circle(surface, MINT, (x-3, y-2), 2)
             pygame.draw.circle(surface, MINT, (x+3, y-2), 2)
+        elif self.kind == 3:    # Lápide
+            pygame.draw.rect(surface, (118, 120, 140), (x-10, y-9, 20, 19), border_top_left_radius=8, border_top_right_radius=8)
+            pygame.draw.line(surface, (64, 66, 84), (x, y-5), (x, y+4), 2)
+            pygame.draw.line(surface, (64, 66, 84), (x-4, y-2), (x+4, y-2), 2)
+        elif self.kind == 4:    # Milho
+            pygame.draw.ellipse(surface, (255, 218, 76), (x-7, y-12, 14, 24))
+            pygame.draw.line(surface, (104, 160, 68), (x-10, y+8), (x-5, y-4), 3)
+            pygame.draw.line(surface, (104, 160, 68), (x+10, y+8), (x+5, y-4), 3)
+            for dy in (-6, 0, 6):
+                pygame.draw.circle(surface, (255, 246, 164), (x, y+dy), 2)
+        elif self.kind == 5:    # Corvo
+            pygame.draw.ellipse(surface, (45, 38, 62), (x-9, y-5, 18, 13))
+            pygame.draw.circle(surface, (58, 50, 78), (x+4, y-7), 6)
+            pygame.draw.polygon(surface, (220, 170, 80), [(x+8, y-8), (x+15, y-5), (x+8, y-3)])
+            pygame.draw.circle(surface, (255, 238, 160), (x+5, y-8), 1)
+            pygame.draw.polygon(surface, (78, 64, 102), [(x-7, y), (x-15, y-7), (x-11, y+4)])
+        else:                   # Abóbora
+            draw_pumpkin(surface, x, y, 12, face=True)
         pygame.draw.circle(surface, (22, 12, 32), (x+15, y+15), 9)
         draw_text(str(self.level), x+11, y+7, WHITE, SMALL)
 
 class Bullet:
-    def __init__(self, start, target, damage, color):
+    def __init__(self, start, target, damage, color, area_radius=0, speed=420):
         self.x, self.y = start
         self.target = target
         self.damage = damage
         self.color = color
-        self.speed = 420
+        self.area_radius = area_radius
+        self.speed = speed
         self.dead = False
 
-    def update(self, dt):
+    def update(self, dt, enemies):
         if self.target.dead or self.target.reached:
             self.dead = True
             return
         dx, dy = self.target.x-self.x, self.target.y-self.y
         length = math.hypot(dx,dy)
         if length < self.speed*dt + 5:
-            self.target.hp -= self.damage
-            self.target.hit_flash = .08
-            if self.target.hp <= 0:
-                self.target.dead = True
+            for enemy in enemies:
+                if (not enemy.dead and not enemy.reached
+                        and (enemy is self.target or
+                             (self.area_radius and dist((self.target.x, self.target.y), (enemy.x, enemy.y)) <= self.area_radius))):
+                    enemy.hp -= self.damage
+                    enemy.hit_flash = .12
+                    if enemy.hp <= 0:
+                        enemy.dead = True
             self.dead = True
         elif length:
             self.x += dx/length*self.speed*dt
@@ -391,6 +470,7 @@ class Game:
         self.core_hp = 100
         self.towers = []
         self.enemies = []
+        self.minions = []
         self.bullets = []
         self.particles = []
         self.wave = 0
@@ -457,7 +537,7 @@ class Game:
             self.notify("Abóboras insuficientes para essa torre.")
             return
         self.money -= spec["cost"]
-        self.towers.append(Tower(pos, self.selected_kind))
+        self.towers.append(Tower(pos, self.selected_kind, self.fast_fire))
         self.selected_tower = self.towers[-1]
         self.notify(f"Torre posicionada: {spec['name']}!")
 
@@ -516,8 +596,15 @@ class Game:
                 if self.wave >= len(WAVES):
                     self.completed = True
                     self.notify("FAZENDA PROTEGIDA — Você venceu!", 10)
+        for m in self.minions:
+            m.update(dt, self.enemies)
+        self.minions = [m for m in self.minions if not m.dead]
         for e in self.enemies:
             if not e.dead and not e.reached:
+                e.slow_factor = .3 if any(
+                    dist((m.x, m.y), (e.x, e.y)) <= m.radius + e.radius + 3
+                    for m in self.minions
+                ) else 1
                 e.update(dt)
             if e.reached and not e.dead:
                 e.dead = True
@@ -527,9 +614,9 @@ class Game:
                     self.lost = True
         for t in self.towers:
             t.damage = TOWER_TYPES[t.kind]["damage"] * (1 + .42*(t.level-1)) * self.bonus_damage
-            t.update(dt, self.enemies, self.bullets)
+            t.update(dt, self.enemies, self.bullets, self.minions)
         for b in self.bullets:
-            b.update(dt)
+            b.update(dt, self.enemies)
         self.bullets = [b for b in self.bullets if not b.dead]
         for e in self.enemies:
             if e.dead and not getattr(e, "rewarded", False):
@@ -569,6 +656,8 @@ class Game:
             pygame.draw.circle(screen, (255, 240, 170), CORE, int(50+(0.4-self.special_flash)*220), 3)
         for t in self.towers:
             t.draw(screen, t is self.selected_tower)
+        for m in self.minions:
+            m.draw(screen)
         for e in self.enemies:
             e.draw(screen)
         for b in self.bullets:
@@ -611,28 +700,23 @@ class Game:
         # Painel inferior
         pygame.draw.rect(screen, PANEL, (0,565,WIDTH,155))
         pygame.draw.line(screen, BORDER, (0,565),(WIDTH,565),2)
-        draw_text("TORRES (Q / W / E para selecionar)", 24, 577, MUTED, SMALL)
-        for i,spec in enumerate(TOWER_TYPES):
-            x = 24+i*210
-            selected = self.selected_kind == i
-            pygame.draw.rect(screen,(52,34,72) if selected else (36,24,54),(x,602,195,70),border_radius=9)
-            pygame.draw.rect(screen,spec["color"] if selected else BORDER,(x,602,195,70),2,border_radius=9)
-            draw_text(f"{i+1}. {spec['name']}",x+12,607,spec["color"],FONT)
-            draw_text(f"Custo: {fmt_money(spec['cost'])} abóboras",x+12,630,WHITE,SMALL)
-            draw_text(spec["desc"],x+12,649,MUTED,SMALL)
-        draw_text("ESPAÇO: iniciar onda", 670, 585, WHITE, SMALL)
-        draw_text("F: pulso lunar", 670, 606, (255, 240, 170), SMALL)
-        draw_text(f"Pulso: {'PRONTO' if self.special_cooldown<=0 else str(int(self.special_cooldown))+'s'}", 670, 627, MINT if self.special_cooldown<=0 else MUTED, SMALL)
-        draw_text("U: melhorar torre", 670, 648, WHITE, SMALL)
-        draw_text("T: árvore de habilidades", 850, 585, PURPLE, SMALL)
+        draw_text("TORRES | 1-7 selecionam | U: melhoria", 24, 577, MUTED, SMALL)
+        pulse_status = "PRONTO" if self.special_cooldown <= 0 else f"{int(self.special_cooldown)}s"
+        draw_text(f"ESPAÇO: onda | F: pulso ({pulse_status}) | T: árvore", 365, 577, WHITE, SMALL)
         if self.selected_tower:
-            t=self.selected_tower
-            cost=int(t.cost*(.8+.65*t.level))
-            draw_text(f"Selecionada: {TOWER_TYPES[t.kind]['name']} Nv.{t.level}",850,608,t.color,SMALL)
-            draw_text(f"Melhoria: {fmt_money(cost)} abóboras",850,629,WHITE,SMALL)
+            t = self.selected_tower
+            cost = int(t.cost * (0.8 + .65*t.level))
+            draw_text(f"{TOWER_TYPES[t.kind]['name']} Nv.{t.level} | melhoria {fmt_money(cost)}", 735, 577, t.color, SMALL)
         else:
-            draw_text("Clique numa torre para",850,608,MUTED,SMALL)
-            draw_text("ver detalhes e melhorá-la.",850,628,MUTED,SMALL)
+            draw_text("Clique numa torre para selecioná-la", 735, 577, MUTED, SMALL)
+        for i,spec in enumerate(TOWER_TYPES):
+            x = 24+i*150
+            selected = self.selected_kind == i
+            pygame.draw.rect(screen,(52,34,72) if selected else (36,24,54),(x,602,144,70),border_radius=9)
+            pygame.draw.rect(screen,spec["color"] if selected else BORDER,(x,602,144,70),2,border_radius=9)
+            draw_text(f"{i+1}. {spec['name']}",x+8,607,spec["color"],FONT)
+            draw_text(f"{fmt_money(spec['cost'])} abóboras",x+8,630,WHITE,SMALL)
+            draw_text(spec["desc"],x+8,650,MUTED,SMALL)
         if self.message_time > 0:
             text = FONT.render(self.message, True, WHITE)
             box = pygame.Rect(WIDTH//2-text.get_width()//2-14, 82, text.get_width()+28, 32)
@@ -768,12 +852,12 @@ class MenuScreen:
         draw_text("do celeiro chegar a 0%, a colheita é perdida.", x, y+46, WHITE, SMALL)
         draw_text("TORRES", x, y+84, MINT, FONT)
         for i, spec in enumerate(TOWER_TYPES):
-            ty = y + 112 + i*24
+            ty = y + 112 + i*20
             pygame.draw.circle(screen, spec["color"], (x+8, ty+8), 6)
             draw_text(f"{spec['name']} — {spec['desc']} (custo {spec['cost']})", x+24, ty, WHITE, SMALL)
-        draw_text("CONTROLES", x, y+200, MINT, FONT)
+        draw_text("CONTROLES", x, y+260, MINT, FONT)
         controls = [
-            ("Clique no painel / Q W E", "escolher a torre"),
+            ("Clique no painel / 1-7", "escolher a torre"),
             ("Clique no mapa", "posicionar (fora da estrada)"),
             ("Clique em uma torre", "selecionar e ver o alcance"),
             ("U", "melhorar a torre selecionada"),
@@ -783,10 +867,10 @@ class MenuScreen:
             ("ESC", "voltar ao menu"),
         ]
         for i, (k, d) in enumerate(controls):
-            cy = y + 230 + i*24
+            cy = y + 290 + i*20
             draw_text(k, x, cy, ORANGE, SMALL)
             draw_text(d, x+250, cy, WHITE, SMALL)
-        draw_text("Moedas: abóboras. Elas vêm de monstros derrotados e de ondas concluídas.", x, y+430, MUTED, SMALL)
+        draw_text("Moedas: abóboras. Ganhe ao derrotar monstros e concluir ondas.", x, y+455, MUTED, SMALL)
 
     def draw_settings(self):
         self.draw_panel_frame("CONFIGURAÇÕES")
@@ -887,12 +971,10 @@ while running:
             else:
                 if event.key == pygame.K_SPACE:
                     game.start_wave()
-                elif event.key == pygame.K_q:
-                    game.selected_kind=0
-                elif event.key == pygame.K_w:
-                    game.selected_kind=1
-                elif event.key == pygame.K_e:
-                    game.selected_kind=2
+                elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7):
+                    game.selected_kind = event.key - pygame.K_1
+                elif event.key in (pygame.K_q, pygame.K_w, pygame.K_e):
+                    game.selected_kind = {pygame.K_q: 0, pygame.K_w: 1, pygame.K_e: 2}[event.key]
                 elif event.key == pygame.K_u:
                     game.upgrade_selected()
                 elif event.key == pygame.K_f:
@@ -914,8 +996,8 @@ while running:
                 else:
                     game.buy_tower(pos)
             elif pos[1] >= 602 and pos[1] <= 672:
-                for i in range(3):
-                    if pygame.Rect(24+i*210,602,195,70).collidepoint(pos):
+                for i in range(len(TOWER_TYPES)):
+                    if pygame.Rect(24+i*150,602,144,70).collidepoint(pos):
                         game.selected_kind=i
     if state == "title":
         title.update(dt)
