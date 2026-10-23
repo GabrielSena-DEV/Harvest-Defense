@@ -35,7 +35,7 @@ Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco 
 
 ## Controles
 - **Clique em uma torre no painel inferior** para escolhê-la; clique no mapa para posicioná-la.
-- **1 a 7**: selecionar uma das torres disponíveis (Q / W / E também selecionam as três primeiras).
+- **1 a 6**: selecionar uma das torres disponíveis (Q / W / E também selecionam Espantalho, Gárgula e Lápide).
 - **Clique em uma torre colocada**: selecionar para ver alcance e nível.
 - **U**: melhorar a torre selecionada.
 - **Espaço**: iniciar a próxima onda.
@@ -47,9 +47,9 @@ Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco 
 
 ## Mecânicas incluídas
 - Cinco fases com quantidade, resistência e velocidade dos monstros crescentes.
-- Sete torres: **Espantalho** (equilibrado), **Lanterna** (rajada rápida), **Gárgula** (ataque pesado), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (tiro veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
+- Seis torres balanceadas: **Espantalho** (dano equilibrado), **Gárgula** (golpes pesados), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (rajada veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
 - Moeda em abóboras, com bônus por eliminar monstros e por concluir ondas.
-- Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Lanternas Acesas (velocidade de ataque).
+- Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Ritmo de Batalha (velocidade de ataque).
 - Pulso lunar especial, recarga, barras de vida, partículas e efeitos de impacto.
 - O celeiro tem integridade; monstros que chegam ao final a reduzem.
 
