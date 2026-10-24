@@ -40,6 +40,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - **1 a 6**: selecionar uma das torres disponíveis (Q / W / E também selecionam Espantalho, Gárgula e Lápide).
 - **Clique em uma torre colocada**: selecionar para ver alcance e nível.
 - **U**: melhorar a torre selecionada.
+- **V** ou botão **VENDER**: vender a torre selecionada e receber 70% do custo original do tipo de torre (o custo de melhorias não é reembolsado).
 - **Espaço**: iniciar a próxima onda.
 - **F**: usar o pulso lunar (habilidade especial com recarga).
 - **T**: consultar as habilidades equipadas durante a partida.

@@ -1002,6 +1002,7 @@ class Game:
         self.pause_selection = 0
         self.pause_button_rects = []
         self.confirm_button_rects = []
+        self.sell_button_rect = pygame.Rect(954, 573, 122, 27)
         self.skills_open = False
         self.bonus_damage = 1.1 if "sharpshooter" in self.equipped_skills else 1.0
         self.bonus_income = 1.15 if "harvest_bounty" in self.equipped_skills else 1.0
@@ -1084,6 +1085,18 @@ class Game:
         t.upgrade()
         self.total_upgrades += 1
         self.notify(f"Torre melhorada para nível {t.level}.")
+
+    def sell_selected(self):
+        tower = self.selected_tower
+        if tower is None:
+            self.notify("Selecione uma torre para vender.")
+            return
+        refund = round(TOWER_TYPES[tower.kind]["cost"] * 0.7)
+        tower_name = TOWER_TYPES[tower.kind]["name"]
+        self.money += refund
+        self.towers.remove(tower)
+        self.selected_tower = None
+        self.notify(f"{tower_name} vendida por {fmt_money(refund)} abóboras.")
 
     def calculate_score(self):
         health_points = round(5000 * max(0, min(self.core_hp, 100)) / 100)
@@ -1357,7 +1370,11 @@ class Game:
         if self.selected_tower:
             t = self.selected_tower
             cost = int(t.cost * (0.8 + .65*t.level))
+            refund = round(TOWER_TYPES[t.kind]["cost"] * 0.7)
             draw_text(f"{TOWER_TYPES[t.kind]['name']} Nv.{t.level} | melhoria {fmt_money(cost)}", 735, 577, t.color, SMALL)
+            pygame.draw.rect(screen, (72, 42, 48), self.sell_button_rect, border_radius=6)
+            pygame.draw.rect(screen, RED, self.sell_button_rect, 1, border_radius=6)
+            draw_centered_text(f"VENDER +{refund}", self.sell_button_rect.center, WHITE, SMALL)
         else:
             draw_text("Clique numa torre para selecioná-la", 735, 577, MUTED, SMALL)
         for i,spec in enumerate(TOWER_TYPES):
@@ -1923,6 +1940,8 @@ while running:
                     game.selected_kind = {pygame.K_q: 0, pygame.K_w: 1, pygame.K_e: 2}[event.key]
                 elif event.key == pygame.K_u:
                     game.upgrade_selected()
+                elif event.key == pygame.K_v:
+                    game.sell_selected()
                 elif event.key == pygame.K_f:
                     game.use_special()
                 elif event.key == pygame.K_t:
@@ -1932,6 +1951,8 @@ while running:
             if game.skills_open:
                 if not pygame.Rect(245,145,610,430).collidepoint(pos):
                     game.skills_open = False
+            elif game.selected_tower and game.sell_button_rect.collidepoint(pos):
+                game.sell_selected()
             elif MAP_RECT.collidepoint(pos):
                 found = next((t for t in reversed(game.towers) if dist(pos,(t.x,t.y)) < 22),None)
                 if found:
