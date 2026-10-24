@@ -32,6 +32,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - **Tela inicial**: aperte qualquer tecla ou clique para ir ao menu (ESC sai).
 - **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia e volume da música), Como jogar e Sair. Pressione **B** para abrir a loja de habilidades ou **R** para o ranking. ESC volta à tela inicial.
 - **Dificuldade**: depois de escolher Jogar, selecione Fácil, Normal ou Difícil com as setas e ENTER, ou clique em uma opção.
+- **Herói**: após escolher a dificuldade, selecione um dos seis fazendeiros. Cada campanha permite um herói; pressione **G** durante a partida para ativar seu poder (aponte o cursor para o mapa nas habilidades de área).
 - **Durante o jogo**: **ESC** pausa a partida. No menu de pausa, escolha continuar, abrir configurações ou voltar ao menu principal; sair da campanha pede confirmação. **F11** alterna tela cheia em qualquer tela.
 - **Trilha sonora**: o tema toca na tela inicial, no menu e na seleção de dificuldade. Cada dificuldade tem sua própria música; a trilha de chefão assume enquanto um chefão estiver vivo e depois a música da dificuldade retorna. Ajuste o volume em Configurações arrastando o controle ou usando as setas esquerda/direita; a alteração é aplicada imediatamente.
 
@@ -43,6 +44,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - **V** ou botão **VENDER**: vender a torre selecionada e receber 70% do custo original do tipo de torre (o custo de melhorias não é reembolsado).
 - **Espaço**: iniciar a próxima onda.
 - **F**: usar o pulso lunar (habilidade especial com recarga).
+- **G**: ativar o poder do herói escolhido (cada poder tem recarga própria).
 - **T**: consultar as habilidades equipadas durante a partida.
 - **ESC**: fechar o painel de habilidades ou abrir/fechar o menu de pausa.
 - **ENTER**: reiniciar após vitória ou derrota.
@@ -53,6 +55,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - A dificuldade ajusta vida e velocidade dos inimigos, dano ao celeiro e multiplicador de pontuação. A densidade, a resistência e a velocidade dos inimigos aumentam gradualmente nas ondas adicionais.
 - Inimigos com atributos e aparência próprios: **Zumbis** lentos e resistentes; **Esqueletos** básicos que avançam em bandos; **Fantasmas** que ignoram os bloqueios da Lápide; **Morcegos**, **Aranhas** e **Traças** rápidos, frágeis e agrupados; **Vampiros** que regeneram vida; **Múmias** e **Frankenstein** com muita vida e armadura. Novos tipos entram na composição das ondas conforme a campanha avança.
 - Seis torres balanceadas: **Espantalho** (dano equilibrado), **Gárgula** (golpes pesados), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (rajada veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
+- **Heróis com poderes ativos:** escolha um antes de cada campanha. **Coan** desacelera inimigos numa área; **Cap. Nascimento** aumenta temporariamente o dano das torres; **Devair** acelera os ataques; **Chico Bento** gera abóboras; **Inacio** envenena inimigos numa área; **Jair** causa dano instantâneo em área. Pressione **G** para ativar o poder, respeitando a recarga exibida na interface. Para Coan, Inacio e Jair, a posição do cursor define a área atingida.
 - **Duas moedas:** abóboras são ganhas e gastas durante a partida para comprar e melhorar torres; cérebros são ganhos ao derrotar chefões e gastos fora da partida na loja de habilidades.
 - **Recompensa de cérebros:** cada chefão derrotado concede 3 cérebros, sem depender da integridade do celeiro. Chefões que chegam ao celeiro não concedem a recompensa. Os cérebros são persistentes entre sessões.
 - **Economia de abóboras:** as recompensas por inimigo foram reduzidas pela metade e o bônus ao concluir cada onda foi diminuído para manter as compras e melhorias mais equilibradas ao longo da campanha.

@@ -68,6 +68,15 @@ DIFFICULTIES = {
     "normal": {"name": "MÉDIO", "wave_count": 9, "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
     "dificil": {"name": "DIFÍCIL", "wave_count": 12, "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
 }
+HEROES = [
+    {"id": "coan", "name": "Coan", "ability": "Lentidão Temporária", "description": "Reduz em 60% a velocidade dos inimigos numa área por 5 s.", "cooldown": 22},
+    {"id": "capitao_nascimento", "name": "Cap. Nascimento", "ability": "Fúria", "description": "Aumenta em 50% o dano das torres por 8 s.", "cooldown": 24},
+    {"id": "devair", "name": "Devair", "ability": "Frenesi", "description": "Aumenta em 50% a cadência das torres por 8 s.", "cooldown": 24},
+    {"id": "chico_bento", "name": "Chico Bento", "ability": "Colheita Farta", "description": "Gera abóboras imediatamente: 180 + 25 por onda.", "cooldown": 32},
+    {"id": "inacio", "name": "Inacio", "ability": "Pesticida", "description": "Envenena inimigos numa área; causa 6% da vida máx. por segundo durante 5 s.", "cooldown": 26},
+    {"id": "jair", "name": "Jair", "ability": "Impacto", "description": "Elimina inimigos comuns numa área; chefões recebem dano massivo.", "cooldown": 30},
+]
+HERO_BY_ID = {hero["id"]: hero for hero in HEROES}
 SKILLS = [
     {"id": "sharpshooter", "name": "Mira de Precisão", "description": "Torres causam 10% mais dano.", "cost": 3},
     {"id": "rapid_fire", "name": "Rajada Rápida", "description": "Torres atacam 8% mais rápido.", "cost": 3},
@@ -227,6 +236,9 @@ class Monster:
         self.phase_used = False
         self.heal_cooldown = 0
         self.vigor_multiplier = 1
+        self.hero_slow_timer = 0
+        self.poison_timer = 0
+        self.poison_tick_timer = 0
         self.summoned_at_half_health = False
         self.summons_on_death_done = False
 
@@ -249,6 +261,7 @@ class Monster:
     def update(self, dt, allied_minions=()):
         spawned = []
         self.heal_cooldown = max(0, self.heal_cooldown - dt)
+        self.hero_slow_timer = max(0, self.hero_slow_timer - dt)
         if self.intangible:
             self.intangible_timer -= dt
             if self.intangible_timer <= 0:
@@ -260,7 +273,8 @@ class Monster:
                 self.heal_cooldown = 2.5
 
         if self.kind == "king_ghost" and not self.phase_used and self.hp <= self.max_hp * 0.3:
-            self.phase_charge += dt * (0.25 if getattr(self, "slow_factor", 1) < 1 else 1)
+            slow_applied = getattr(self, "slow_factor", 1) < 1 or self.hero_slow_timer > 0
+            self.phase_charge += dt * (0.25 if slow_applied else 1)
             if self.phase_charge >= 2.5:
                 self.intangible = True
                 self.intangible_timer = 3
@@ -282,7 +296,8 @@ class Monster:
         target = PATH[self.segment+1]
         dx, dy = target[0]-self.x, target[1]-self.y
         length = math.hypot(dx, dy)
-        step = self.speed * self.vigor_multiplier * dt * getattr(self, "slow_factor", 1)
+        slow_factor = min(getattr(self, "slow_factor", 1), .4 if self.hero_slow_timer > 0 else 1)
+        step = self.speed * self.vigor_multiplier * dt * slow_factor
         if length <= step:
             self.x, self.y = target
             self.segment += 1
@@ -419,6 +434,8 @@ class Monster:
             pygame.draw.rect(surface, (118, 168, 96), (x+r-1, y+2, 4, r//2))
         if self.hit_flash > 0:
             pygame.draw.circle(surface, WHITE, (x, y), r+2, 3)
+        if self.poison_timer > 0:
+            pygame.draw.circle(surface, (122, 236, 88), (x, y), r+5, 2)
         # barra de vida
         y0 = int(self.y)
         bar_width = 46 if self.is_boss else 30
@@ -856,6 +873,83 @@ class DifficultyScreen:
         )
         screen.blit(status, (WIDTH // 2 - status.get_width() // 2, 558))
 
+class HeroSelectionScreen:
+    CARD_RECTS = [
+        pygame.Rect(46 + (index % 3) * 338, 255 + (index // 3) * 145, 320, 130)
+        for index in range(len(HEROES))
+    ]
+
+    def __init__(self):
+        self.selected = 0
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_LEFT, pygame.K_a):
+                self.selected = (self.selected - 1) % len(HEROES)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                self.selected = (self.selected + 1) % len(HEROES)
+            elif event.key in (pygame.K_UP, pygame.K_w):
+                self.selected = (self.selected - 3) % len(HEROES)
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                self.selected = (self.selected + 3) % len(HEROES)
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                return HEROES[self.selected]["id"]
+            elif event.key == pygame.K_ESCAPE:
+                return "back"
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for index, rect in enumerate(self.CARD_RECTS):
+                if rect.collidepoint(event.pos):
+                    self.selected = index
+                    return HEROES[index]["id"]
+        return None
+
+    def draw(self, background, difficulty):
+        background.draw()
+        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        veil.fill((8, 3, 16, 215))
+        screen.blit(veil, (0, 0))
+        draw_centered_text(
+            f"ESCOLHA SEU HERÓI — {DIFFICULTIES[difficulty]['name']}",
+            (WIDTH // 2, 150),
+            ORANGE,
+            BIG,
+        )
+        for index, (hero, rect) in enumerate(zip(HEROES, self.CARD_RECTS)):
+            selected = index == self.selected
+            pygame.draw.rect(screen, (44, 56, 40) if selected else PANEL, rect, border_radius=12)
+            pygame.draw.rect(screen, MINT if selected else BORDER, rect, 3 if selected else 2, border_radius=12)
+            draw_text(hero["name"], rect.x + 14, rect.y + 12, MINT if selected else WHITE, FONT)
+            draw_text(hero["ability"], rect.x + 14, rect.y + 40, ORANGE, SMALL)
+
+            words = hero["description"].split()
+            lines = []
+            current_line = ""
+            for word in words:
+                candidate = f"{current_line} {word}".strip()
+                if SMALL.size(candidate)[0] > rect.w - 28 and current_line:
+                    lines.append(current_line)
+                    current_line = word
+                else:
+                    current_line = candidate
+            if current_line:
+                lines.append(current_line)
+            for line_index, line in enumerate(lines[:2]):
+                draw_text(line, rect.x + 14, rect.y + 68 + line_index * 18, MUTED, SMALL)
+            draw_text(f"Recarga: {hero['cooldown']} s", rect.x + 14, rect.bottom - 24, CYAN, SMALL)
+
+        draw_centered_text(
+            "Setas / WASD e ENTER ou clique para escolher | ESC: voltar",
+            (WIDTH // 2, 575),
+            WHITE,
+            FONT,
+        )
+        draw_centered_text(
+            "Durante a partida, pressione G para usar o poder do herói.",
+            (WIDTH // 2, 609),
+            MUTED,
+            SMALL,
+        )
+
 class TitleScreen:
     """Tela inicial: arte em 1100x720, texto piscando e brasas flutuando."""
     FADE_IN = 1.2
@@ -970,9 +1064,13 @@ def build_map_surface():
     return surf
 
 class Game:
-    def __init__(self, difficulty="normal", equipped_skills=None):
+    def __init__(self, difficulty="normal", hero_id="coan", equipped_skills=None):
         self.difficulty = difficulty
         self.difficulty_spec = DIFFICULTIES[difficulty]
+        if hero_id not in HERO_BY_ID:
+            raise ValueError(f"Herói desconhecido: {hero_id}")
+        self.hero_id = hero_id
+        self.hero = HERO_BY_ID[hero_id]
         self.equipped_skills = set(profile.equipped_skills if equipped_skills is None else equipped_skills)
         self.money = 320 + (100 if "prepared_defense" in self.equipped_skills else 0)
         self.core_hp = 100
@@ -997,6 +1095,9 @@ class Game:
         self.message_time = 5
         self.special_cooldown = 0
         self.special_flash = 0
+        self.hero_cooldown = 0
+        self.hero_damage_timer = 0
+        self.hero_fire_timer = 0
         self.paused = False
         self.pause_screen = "main"
         self.pause_selection = 0
@@ -1055,6 +1156,58 @@ class Game:
         self.special_cooldown = 12 * self.special_cooldown_multiplier
         self.special_flash = .4
         self.notify(f"Pulso lunar! {count} monstro(s) eliminado(s).", 2)
+
+    def use_hero_ability(self, target_pos):
+        if not self.run_started:
+            self.notify("Inicie a primeira onda antes de usar o poder do herói.")
+            return
+        if self.hero_cooldown > 0:
+            self.notify(f"{self.hero['ability']} recarregando: {math.ceil(self.hero_cooldown)} s.")
+            return
+
+        enemies = [enemy for enemy in self.enemies if not enemy.dead and not enemy.reached]
+        if self.hero_id in ("coan", "inacio", "jair") and not MAP_RECT.collidepoint(target_pos):
+            self.notify("Aponte o cursor para uma área do mapa e pressione G.")
+            return
+
+        affected = []
+        if self.hero_id in ("coan", "inacio", "jair"):
+            radius = 195 if self.hero_id == "coan" else 175
+            affected = [
+                enemy for enemy in enemies
+                if dist(target_pos, (enemy.x, enemy.y)) <= radius
+            ]
+            if not affected:
+                self.notify("Não há inimigos na área escolhida.")
+                return
+
+        if self.hero_id == "coan":
+            for enemy in affected:
+                enemy.hero_slow_timer = max(enemy.hero_slow_timer, 5)
+            self.notify(f"Coan: {len(affected)} inimigo(s) desacelerado(s) por 5 s.")
+        elif self.hero_id == "capitao_nascimento":
+            self.hero_damage_timer = 8
+            self.notify("Cap. Nascimento: dano das torres +50% por 8 s.")
+        elif self.hero_id == "devair":
+            self.hero_fire_timer = 8
+            self.notify("Devair: cadência das torres +50% por 8 s.")
+        elif self.hero_id == "chico_bento":
+            reward = 180 + self.wave * 25
+            self.money += reward
+            self.notify(f"Chico Bento: colheita farta! +{fmt_money(reward)} abóboras.")
+        elif self.hero_id == "inacio":
+            for enemy in affected:
+                enemy.poison_timer = max(enemy.poison_timer, 5)
+                enemy.poison_tick_timer = min(enemy.poison_tick_timer or .5, .5)
+            self.notify(f"Inacio: {len(affected)} inimigo(s) envenenado(s) por 5 s.")
+        elif self.hero_id == "jair":
+            for enemy in affected:
+                damage = enemy.max_hp * (0.35 if enemy.is_boss else 1)
+                enemy.take_damage(damage)
+                enemy.hit_flash = .2
+            self.notify(f"Jair: Impacto atingiu {len(affected)} inimigo(s) na área.")
+
+        self.hero_cooldown = self.hero["cooldown"]
 
     def buy_tower(self, pos):
         if not MAP_RECT.collidepoint(pos) or on_path(pos):
@@ -1139,6 +1292,9 @@ class Game:
         self.message_time = max(0, self.message_time-dt)
         self.special_cooldown = max(0, self.special_cooldown-dt)
         self.special_flash = max(0, self.special_flash-dt)
+        self.hero_cooldown = max(0, self.hero_cooldown-dt)
+        self.hero_damage_timer = max(0, self.hero_damage_timer-dt)
+        self.hero_fire_timer = max(0, self.hero_fire_timer-dt)
         if self.skills_open or self.completed or self.lost:
             return
         if self.run_started:
@@ -1178,6 +1334,14 @@ class Game:
             for enemy in self.enemies:
                 if enemy is not boss and not enemy.dead and dist((boss.x, boss.y), (enemy.x, enemy.y)) <= 125:
                     enemy.vigor_multiplier = 1.25
+        for enemy in self.enemies:
+            if enemy.poison_timer > 0 and not enemy.dead and not enemy.reached:
+                enemy.poison_timer = max(0, enemy.poison_timer - dt)
+                enemy.poison_tick_timer -= dt
+                if enemy.poison_tick_timer <= 0:
+                    enemy.take_damage(enemy.max_hp * 0.06)
+                    enemy.hit_flash = .1
+                    enemy.poison_tick_timer = 1
         summoned_enemies = []
         for e in self.enemies:
             if not e.dead and not e.reached:
@@ -1199,7 +1363,14 @@ class Game:
                 if self.core_hp <= 0:
                     self.lost = True
         for t in self.towers:
-            t.damage = TOWER_TYPES[t.kind]["damage"] * (1 + .42*(t.level-1)) * self.bonus_damage
+            t.damage = (
+                TOWER_TYPES[t.kind]["damage"] * (1 + .42*(t.level-1))
+                * self.bonus_damage * (1.5 if self.hero_damage_timer > 0 else 1)
+            )
+            t.rate = (
+                TOWER_TYPES[t.kind]["rate"] * self.fast_fire
+                * .88**(t.level-1) / (1.5 if self.hero_fire_timer > 0 else 1)
+            )
             t.update(dt, self.enemies, self.bullets, self.minions)
         for b in self.bullets:
             b.update(dt, self.enemies)
@@ -1365,8 +1536,15 @@ class Game:
         pygame.draw.rect(screen, PANEL, (0,565,WIDTH,155))
         pygame.draw.line(screen, BORDER, (0,565),(WIDTH,565),2)
         draw_text("TORRES | 1-6 selecionam | U: melhoria", 24, 577, MUTED, SMALL)
-        pulse_status = "PRONTO" if self.special_cooldown <= 0 else f"{int(self.special_cooldown)}s"
-        draw_text(f"ESPAÇO: onda | F: pulso ({pulse_status}) | T: habilidades", 365, 577, WHITE, SMALL)
+        pulse_status = "PRONTO" if self.special_cooldown <= 0 else f"{math.ceil(self.special_cooldown)}s"
+        hero_status = "PRONTO" if self.hero_cooldown <= 0 else f"{math.ceil(self.hero_cooldown)}s"
+        draw_text(
+            f"ESPAÇO: onda | F: pulso ({pulse_status}) | G: {self.hero['name']} ({hero_status})",
+            365,
+            577,
+            WHITE,
+            SMALL,
+        )
         if self.selected_tower:
             t = self.selected_tower
             cost = int(t.cost * (0.8 + .65*t.level))
@@ -1666,6 +1844,7 @@ class MenuScreen:
             ("U", "melhorar a torre selecionada"),
             ("ESPAÇO", "iniciar a próxima onda"),
             ("F", "pulso lunar (recarrega)"),
+            ("G", "poder ativo do herói escolhido"),
             ("T", "ver habilidades equipadas"),
             ("ESC", "voltar ao menu"),
         ]
@@ -1674,7 +1853,7 @@ class MenuScreen:
             draw_text(k, x, cy, ORANGE, SMALL)
             draw_text(d, x+250, cy, WHITE, SMALL)
         draw_text("Abóboras: torres e melhorias. Cérebros: habilidades permanentes no menu (B).", x, y+442, MUTED, SMALL)
-        draw_text("Recompensa por onda: 1-3 cérebros conforme a integridade do celeiro.", x, y+462, MUTED, SMALL)
+        draw_text("Recompensa de cérebros: 3 por chefão derrotado.", x, y+462, MUTED, SMALL)
 
     def draw_skills(self):
         self.draw_panel_frame("LOJA DE HABILIDADES")
@@ -1796,6 +1975,8 @@ class MenuScreen:
 leaderboard = Leaderboard()
 profile = PlayerProfile()
 difficulty_screen = DifficultyScreen()
+hero_selection_screen = HeroSelectionScreen()
+selected_difficulty = "normal"
 game = Game()
 title = TitleScreen()
 menu = MenuScreen()
@@ -1837,7 +2018,15 @@ while running:
             if difficulty == "back":
                 state = "menu"
             elif difficulty:
-                game = Game(difficulty)
+                selected_difficulty = difficulty
+                state = "hero_select"
+            continue
+        if state == "hero_select":
+            hero_id = hero_selection_screen.handle_event(event)
+            if hero_id == "back":
+                state = "difficulty"
+            elif hero_id:
+                game = Game(selected_difficulty, hero_id)
                 state = "playing"
             continue
         if state == "playing" and game.paused:
@@ -1923,7 +2112,7 @@ while running:
                     game.pause_selection = 0
             elif game.completed or game.lost:
                 if event.key == pygame.K_RETURN:
-                    game = Game(game.difficulty)
+                    game = Game(game.difficulty, game.hero_id)
                 elif event.key == pygame.K_r and game.completed:
                     menu.enter()
                     menu.panel = "ranking"
@@ -1944,6 +2133,8 @@ while running:
                     game.sell_selected()
                 elif event.key == pygame.K_f:
                     game.use_special()
+                elif event.key == pygame.K_g:
+                    game.use_hero_ability(pygame.mouse.get_pos())
                 elif event.key == pygame.K_t:
                     game.skills_open = True
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -1972,6 +2163,8 @@ while running:
         menu.draw()
     elif state == "difficulty":
         difficulty_screen.draw(menu)
+    elif state == "hero_select":
+        hero_selection_screen.draw(menu, selected_difficulty)
     else:
         game.update(dt)
         game.draw()
