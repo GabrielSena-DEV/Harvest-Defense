@@ -30,9 +30,10 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 
 ## Telas
 - **Tela inicial**: aperte qualquer tecla ou clique para ir ao menu (ESC sai).
-- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia), Como jogar e Sair. Pressione **B** para abrir a loja de habilidades ou **R** para o ranking. ESC volta à tela inicial.
+- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia e volume da música), Como jogar e Sair. Pressione **B** para abrir a loja de habilidades ou **R** para o ranking. ESC volta à tela inicial.
 - **Dificuldade**: depois de escolher Jogar, selecione Fácil, Normal ou Difícil com as setas e ENTER, ou clique em uma opção.
 - **Durante o jogo**: ESC volta ao menu. **F11** alterna tela cheia em qualquer tela.
+- **Trilha sonora**: o tema toca na tela inicial, no menu e na seleção de dificuldade. Cada dificuldade tem sua própria música; a trilha de chefão assume enquanto um chefão estiver vivo e depois a música da dificuldade retorna. Ajuste o volume em Configurações arrastando o controle ou usando as setas esquerda/direita; a alteração é aplicada imediatamente.
 
 ## Controles
 - **Clique em uma torre no painel inferior** para escolhê-la; clique no mapa para posicioná-la.
@@ -60,6 +61,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - O celeiro tem integridade; monstros que chegam ao final a reduzem.
 - O score só é calculado e incluído no ranking após vencer todas as ondas da dificuldade escolhida. A integridade do celeiro vale até 5.000 pontos; tempo, melhorias de torres, habilidades equipadas e abóboras restantes completam a pontuação, que recebe um multiplicador conforme a dificuldade.
 - O ranking mantém as 10 melhores vitórias de cada dificuldade neste computador. Ele é salvo em `~/.harvest-defense/leaderboard.json`; moedas e habilidades ficam em `~/.harvest-defense/profile.json`. Esses dados são locais e não são enviados a um servidor.
+- As músicas ficam em `assets/soundtrack/`: `The_Organist_s_Final_Act_Tema.mp3` (título e menus), `Behind_The_Barricade_Fase_Fácil.mp3` (Fácil), `Weight_of_the_Headstone_Fase_Média.mp3` (Médio), `Teeth_Of_The_Caldera_Fase_Dificil.mp3` (Difícil) e `Iron_Verdict_Chegada do chefe.mp3` (chefões).
 
 ## Arquivos
 - `main.py` — o jogo.
@@ -69,4 +71,4 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 ## Observações
 - Se `assets/tela_inicial.png` ou `assets/menu_principal.png` não forem encontradas, o jogo mostra telas de reserva em texto.
 - Torres, monstros, estrada e celeiro são desenhados com formas do próprio Pygame; só a tela inicial usa imagem.
-- O som não está implementado nesta versão.
+- A reprodução usa o mixer do Pygame; se a inicialização de áudio ou o carregamento de uma faixa falhar, o erro é informado no terminal.

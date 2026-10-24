@@ -1376,6 +1376,62 @@ def is_fullscreen():
     surf = pygame.display.get_surface()
     return bool(surf and surf.get_flags() & pygame.FULLSCREEN)
 
+class MusicController:
+    TRACKS = {
+        "theme": "The_Organist_s_Final_Act_Tema.mp3",
+        "facil": "Behind_The_Barricade_Fase_Fácil.mp3",
+        "normal": "Weight_of_the_Headstone_Fase_Média.mp3",
+        "dificil": "Teeth_Of_The_Caldera_Fase_Dificil.mp3",
+        "boss": "Iron_Verdict_Chegada do chefe.mp3",
+    }
+
+    def __init__(self):
+        self.current_track = None
+        self.failed_tracks = set()
+        self.unavailable = False
+        self.volume = 0.55
+
+    def set_volume(self, volume):
+        self.volume = max(0.0, min(1.0, volume))
+        if pygame.mixer.get_init() is not None:
+            pygame.mixer.music.set_volume(self.volume)
+
+    def play(self, track_id):
+        if track_id == self.current_track or track_id in self.failed_tracks or self.unavailable:
+            return
+        if track_id not in self.TRACKS:
+            raise ValueError(f"Trilha sonora desconhecida: {track_id}")
+        track_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "assets",
+            "soundtrack",
+            self.TRACKS[track_id],
+        )
+        try:
+            if pygame.mixer.get_init() is None:
+                pygame.mixer.init()
+            pygame.mixer.music.load(track_path)
+            pygame.mixer.music.set_volume(self.volume)
+            pygame.mixer.music.play(-1)
+        except pygame.error as error:
+            print(f"Não foi possível reproduzir a trilha sonora '{track_path}': {error}", file=sys.stderr)
+            self.failed_tracks.add(track_id)
+            if pygame.mixer.get_init() is None:
+                self.unavailable = True
+            return
+        self.current_track = track_id
+
+    def update(self, state, game):
+        if state == "playing":
+            boss_alive = any(
+                enemy.is_boss and not enemy.dead and not enemy.reached
+                for enemy in game.enemies
+            )
+            track_id = "boss" if boss_alive else game.difficulty
+        else:
+            track_id = "theme"
+        self.play(track_id)
+
 
 class MenuScreen:
     """Menu principal: arte com os botões; seleção por mouse ou teclado."""
@@ -1390,6 +1446,7 @@ class MenuScreen:
         self.time = 0.0
         self.sel = 0
         self.panel = None   # None | "settings" | "howto" | "ranking" | "skills"
+        self.volume_dragging = False
         self.skill_message = "Clique em uma habilidade para comprar, equipar ou remover."
         self.image = None
         path = os.path.join(BASE_DIR, "assets", "menu_principal.png")
@@ -1424,11 +1481,21 @@ class MenuScreen:
                 ):
                     index = event.key - pygame.K_1
                     self.skill_message = profile.toggle_skill(SKILLS[index])
+                elif self.panel == "settings" and event.key in (
+                    pygame.K_LEFT, pygame.K_DOWN, pygame.K_RIGHT, pygame.K_UP
+                ):
+                    change = 0.05 if event.key in (pygame.K_RIGHT, pygame.K_UP) else -0.05
+                    music.set_volume(music.volume + change)
                 elif event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE, pygame.K_BACKSPACE):
                     back = True
+            elif event.type == pygame.MOUSEMOTION and self.panel == "settings" and self.volume_dragging:
+                self.set_volume_from_x(event.pos[0])
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.panel == "settings" and self.toggle_rect().collidepoint(event.pos):
                     toggle_fullscreen()
+                elif self.panel == "settings" and self.volume_slider_rect().inflate(0, 24).collidepoint(event.pos):
+                    self.volume_dragging = True
+                    self.set_volume_from_x(event.pos[0])
                 elif self.panel == "skills" and self.back_rect().collidepoint(event.pos):
                     back = True
                 elif self.panel == "skills":
@@ -1441,8 +1508,11 @@ class MenuScreen:
                             back = True
                 elif self.back_rect().collidepoint(event.pos) or not self.panel_rect().collidepoint(event.pos):
                     back = True
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                self.volume_dragging = False
             if back:
                 self.panel = None
+                self.volume_dragging = False
             return None
         if event.type == pygame.MOUSEMOTION:
             for i, r in enumerate(self.RECTS):
@@ -1480,6 +1550,14 @@ class MenuScreen:
     def toggle_rect(self):
         r = self.panel_rect()
         return pygame.Rect(r.right - 190, r.top + 98, 150, 38)
+
+    def volume_slider_rect(self):
+        r = self.panel_rect()
+        return pygame.Rect(r.x + 28, r.y + 204, r.w - 56, 8)
+
+    def set_volume_from_x(self, x):
+        slider = self.volume_slider_rect()
+        music.set_volume((x - slider.left) / slider.width)
 
     def draw_panel_frame(self, title):
         veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -1595,8 +1673,16 @@ class MenuScreen:
         pygame.draw.rect(screen, MINT if on else BORDER, tg, 2, border_radius=9)
         t = FONT.render("LIGADA" if on else "DESLIGADA", True, MINT if on else MUTED)
         screen.blit(t, (tg.centerx - t.get_width()//2, tg.centery - t.get_height()//2))
-        draw_text("Som", r.x + 28, r.y + 168, WHITE, FONT)
-        draw_text("indisponível nesta versão", r.right - 250, r.y + 171, MUTED, SMALL)
+        draw_text("Volume da música", r.x + 28, r.y + 162, WHITE, FONT)
+        slider = self.volume_slider_rect()
+        pygame.draw.rect(screen, (75, 57, 91), slider, border_radius=4)
+        filled = pygame.Rect(slider.left, slider.top, round(slider.width * music.volume), slider.height)
+        if filled.width:
+            pygame.draw.rect(screen, MINT, filled, border_radius=4)
+        knob_x = slider.left + round(slider.width * music.volume)
+        pygame.draw.circle(screen, WHITE, (knob_x, slider.centery), 9)
+        draw_text(f"{round(music.volume * 100)}%", r.right - 62, r.y + 162, ORANGE, FONT)
+        draw_text("Arraste o controle ou use ← / →.", r.x + 28, r.y + 226, MUTED, SMALL)
 
     def draw_selection(self):
         rect = self.RECTS[self.sel]
@@ -1642,6 +1728,7 @@ difficulty_screen = DifficultyScreen()
 game = Game()
 title = TitleScreen()
 menu = MenuScreen()
+music = MusicController()
 state = "title"   # "title" -> tela inicial | "menu" -> menu principal | "difficulty" -> escolha | "playing" -> jogo
 running = True
 while running:
@@ -1727,6 +1814,7 @@ while running:
                 for i in range(len(TOWER_TYPES)):
                     if pygame.Rect(24+i*174,602,164,70).collidepoint(pos):
                         game.selected_kind=i
+    music.update(state, game)
     if state == "title":
         title.update(dt)
         title.draw()
