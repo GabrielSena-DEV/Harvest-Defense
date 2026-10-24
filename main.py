@@ -1,7 +1,9 @@
 import math
+import json
 import os
 import random
 import sys
+from datetime import datetime
 import pygame
 
 # HARVEST DEFENSE — jogo de defesa em Pygame (fazenda + Halloween)
@@ -54,6 +56,11 @@ WAVES = [
     {"count": 17, "hp": 94, "speed": 88, "reward": 45, "name": "Abóboras malditas"},
     {"count": 21, "hp": 125, "speed": 98, "reward": 58, "name": "Rei Abóbora"},
 ]
+DIFFICULTIES = {
+    "facil": {"name": "FÁCIL", "enemy_hp": 0.8, "enemy_speed": 0.9, "core_damage": 0.8, "score_multiplier": 0.8},
+    "normal": {"name": "NORMAL", "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
+    "dificil": {"name": "DIFÍCIL", "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
+}
 # cor das partículas ao derrotar cada tipo de monstro
 KIND_COLORS = {"ghost": (235, 235, 255), "slime": PURPLE, "zombie": MINT, "pumpkin": ORANGE}
 
@@ -104,14 +111,15 @@ def on_path(pos):
     return any(point_segment_distance(pos, PATH[i], PATH[i+1]) < 28 for i in range(len(PATH)-1))
 
 class Monster:
-    def __init__(self, wave):
+    def __init__(self, wave, difficulty):
         spec = WAVES[wave]
+        difficulty_spec = DIFFICULTIES[difficulty]
         self.x, self.y = PATH[0]
         self.segment = 0
         self.progress = 0.0
-        self.max_hp = spec["hp"] * random.uniform(.82, 1.18)
+        self.max_hp = spec["hp"] * difficulty_spec["enemy_hp"] * random.uniform(.82, 1.18)
         self.hp = self.max_hp
-        self.speed = spec["speed"] * random.uniform(.88, 1.12)
+        self.speed = spec["speed"] * difficulty_spec["enemy_speed"] * random.uniform(.88, 1.12)
         self.reward = spec["reward"]
         self.radius = random.choice([10, 11, 12]) + wave // 3
         self.kind = random.choice(["ghost", "slime", "zombie"]) if wave < 3 else random.choice(["ghost", "zombie", "pumpkin"])
@@ -227,7 +235,7 @@ class AlliedMinion:
 
 
 class Tower:
-    def __init__(self, pos, kind, rate_multiplier=1):
+    def __init__(self, pos, kind, rate_multiplier=1.0):
         spec = TOWER_TYPES[kind]
         self.x, self.y = pos
         self.kind = kind
@@ -346,6 +354,121 @@ class Bullet:
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def format_duration(seconds):
+    total = max(0, int(seconds))
+    return f"{total // 60:02}:{total % 60:02}"
+
+class Leaderboard:
+    """Ranking local, preservado entre execuções do jogo."""
+    LIMIT = 10
+
+    def __init__(self):
+        self.path = os.path.join(os.path.expanduser("~"), ".harvest-defense", "leaderboard.json")
+        self.rankings = self.load()
+
+    def load(self):
+        try:
+            with open(self.path, "r", encoding="utf-8") as ranking_file:
+                data = json.load(ranking_file)
+        except FileNotFoundError:
+            return {key: [] for key in DIFFICULTIES}
+        except (OSError, json.JSONDecodeError) as error:
+            print(f"Não foi possível carregar o ranking: {error}", file=sys.stderr)
+            return {key: [] for key in DIFFICULTIES}
+
+        rankings = data.get("rankings") if isinstance(data, dict) else None
+        if not isinstance(rankings, dict):
+            print("Arquivo de ranking inválido; será iniciado um ranking vazio.", file=sys.stderr)
+            return {key: [] for key in DIFFICULTIES}
+
+        clean_rankings = {key: [] for key in DIFFICULTIES}
+        for difficulty in DIFFICULTIES:
+            entries = rankings.get(difficulty, [])
+            if not isinstance(entries, list):
+                continue
+            valid_entries = [
+                entry for entry in entries
+                if isinstance(entry, dict)
+                and isinstance(entry.get("score"), int)
+                and isinstance(entry.get("date"), str)
+                and isinstance(entry.get("time"), (int, float))
+            ]
+            valid_entries.sort(key=lambda entry: entry["score"], reverse=True)
+            clean_rankings[difficulty] = valid_entries[:self.LIMIT]
+        return clean_rankings
+
+    def records_for(self, difficulty):
+        return self.rankings[difficulty]
+
+    def add_result(self, result):
+        difficulty = result["difficulty"]
+        self.rankings[difficulty].append(result)
+        self.rankings[difficulty].sort(key=lambda entry: entry["score"], reverse=True)
+        self.rankings[difficulty] = self.rankings[difficulty][:self.LIMIT]
+        try:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            temporary_path = self.path + ".tmp"
+            with open(temporary_path, "w", encoding="utf-8") as ranking_file:
+                json.dump({"rankings": self.rankings}, ranking_file, ensure_ascii=False, indent=2)
+            os.replace(temporary_path, self.path)
+        except OSError as error:
+            print(f"Não foi possível salvar o ranking: {error}", file=sys.stderr)
+            return str(error)
+        return None
+
+class DifficultyScreen:
+    OPTIONS = [
+        ("facil", "FÁCIL", MINT),
+        ("normal", "NORMAL", CYAN),
+        ("dificil", "DIFÍCIL", RED),
+    ]
+    RECTS = [pygame.Rect(120 + index * 292, 310, 268, 170) for index in range(3)]
+
+    def __init__(self):
+        self.selected = 1
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_LEFT, pygame.K_a):
+                self.selected = (self.selected - 1) % len(self.OPTIONS)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                self.selected = (self.selected + 1) % len(self.OPTIONS)
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                return self.OPTIONS[self.selected][0]
+            elif event.key == pygame.K_ESCAPE:
+                return "back"
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for index, rect in enumerate(self.RECTS):
+                if rect.collidepoint(event.pos):
+                    self.selected = index
+                    return self.OPTIONS[index][0]
+        return None
+
+    def draw(self, background):
+        background.draw()
+        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        veil.fill((8, 3, 16, 215))
+        screen.blit(veil, (0, 0))
+        title = BIG.render("ESCOLHA A DIFICULDADE", True, ORANGE)
+        screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 205))
+        for index, (key, label, color) in enumerate(self.OPTIONS):
+            rect = self.RECTS[index]
+            selected = index == self.selected
+            pygame.draw.rect(screen, (44, 56, 40) if selected else PANEL, rect, border_radius=14)
+            pygame.draw.rect(screen, color if selected else BORDER, rect, 3 if selected else 2, border_radius=14)
+            label_surface = BIG.render(label, True, color)
+            screen.blit(label_surface, (rect.centerx - label_surface.get_width() // 2, rect.y + 28))
+            lines = {
+                "facil": ["Inimigos: 80% vida, 90% velocidade", "Dano ao celeiro: 80%", "Multiplicador: 0,80x"],
+                "normal": ["Inimigos: força padrão", "Dano ao celeiro: padrão", "Multiplicador: 1,00x"],
+                "dificil": ["Inimigos: 125% vida, 112% velocidade", "Dano ao celeiro: 125%", "Multiplicador: 1,25x"],
+            }[key]
+            for line_index, line in enumerate(lines):
+                text = SMALL.render(line, True, WHITE if line_index == 0 else MUTED)
+                screen.blit(text, (rect.centerx - text.get_width() // 2, rect.y + 78 + line_index * 24))
+        subtitle = FONT.render("Setas / A-D e ENTER ou clique para confirmar", True, WHITE)
+        screen.blit(subtitle, (WIDTH // 2 - subtitle.get_width() // 2, 520))
+
 class TitleScreen:
     """Tela inicial: arte em 1100x720, texto piscando e brasas flutuando."""
     FADE_IN = 1.2
@@ -460,7 +583,9 @@ def build_map_surface():
     return surf
 
 class Game:
-    def __init__(self):
+    def __init__(self, difficulty="normal"):
+        self.difficulty = difficulty
+        self.difficulty_spec = DIFFICULTIES[difficulty]
         self.money = 320
         self.core_hp = 100
         self.towers = []
@@ -489,6 +614,12 @@ class Game:
         self.completed = False
         self.lost = False
         self.total_kills = 0
+        self.total_upgrades = 0
+        self.skills_purchased = 0
+        self.elapsed_seconds = 0
+        self.run_started = False
+        self.score_details = None
+        self.ranking_save_error = None
 
     def notify(self, text, seconds=3):
         self.message = text
@@ -496,6 +627,7 @@ class Game:
 
     def start_wave(self):
         if not self.wave_active and self.wave < len(WAVES) and not self.completed and not self.lost:
+            self.run_started = True
             self.wave_active = True
             self.spawned = 0
             self.spawn_timer = .2
@@ -513,8 +645,6 @@ class Game:
                 e.hit_flash = .15
                 if e.hp <= 0:
                     e.dead = True
-                    self.money += int(e.reward*self.bonus_income)
-                    self.total_kills += 1
                     count += 1
         self.special_cooldown = 12
         self.special_flash = .4
@@ -547,6 +677,7 @@ class Game:
             return
         self.money -= cost
         t.upgrade()
+        self.total_upgrades += 1
         self.notify(f"Torre melhorada para nível {t.level}.")
 
     def buy_skill(self, index):
@@ -559,6 +690,7 @@ class Game:
             return
         self.money -= cost
         self.unlocked[index] = True
+        self.skills_purchased += 1
         if index == 0:
             self.bonus_damage = 1.35
         elif index == 1:
@@ -569,28 +701,54 @@ class Game:
                 t.rate *= .78
         self.notify(["Amuleto sombrio: dano +35%.", "Colheita farta: recompensa +30%.", "Ritmo de batalha: torres atacam mais rápido."][index], 4)
 
+    def calculate_score(self):
+        health_points = round(5000 * max(0, min(self.core_hp, 100)) / 100)
+        time_points = round(2000 * max(0, 1 - self.elapsed_seconds / (20 * 60)))
+        upgrade_points = round(1000 * min(self.total_upgrades / 10, 1))
+        talent_points = round(500 * min(self.skills_purchased / 2, 1))
+        savings_points = round(1500 * min(self.money / 1000, 1))
+        base_score = health_points + time_points + upgrade_points + talent_points + savings_points
+        score = round(base_score * self.difficulty_spec["score_multiplier"])
+        return {
+            "health": health_points,
+            "time": time_points,
+            "upgrades": upgrade_points,
+            "talents": talent_points,
+            "savings": savings_points,
+            "multiplier": self.difficulty_spec["score_multiplier"],
+            "score": score,
+        }
+
+    def save_completed_score(self):
+        self.score_details = self.calculate_score()
+        result = {
+            "player": "Fazendeiro",
+            "difficulty": self.difficulty,
+            "score": self.score_details["score"],
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "time": round(self.elapsed_seconds),
+            "core_hp": self.core_hp,
+            "upgrades": self.total_upgrades,
+            "talents": self.skills_purchased,
+            "money": self.money,
+        }
+        self.ranking_save_error = leaderboard.add_result(result)
+
     def update(self, dt):
         self.message_time = max(0, self.message_time-dt)
         self.special_cooldown = max(0, self.special_cooldown-dt)
         self.special_flash = max(0, self.special_flash-dt)
         if self.paused or self.tree_open or self.completed or self.lost:
             return
+        if self.run_started:
+            self.elapsed_seconds += dt
         if self.wave_active:
             self.spawn_timer -= dt
             spec = WAVES[self.wave]
             if self.spawned < spec["count"] and self.spawn_timer <= 0:
-                self.enemies.append(Monster(self.wave))
+                self.enemies.append(Monster(self.wave, self.difficulty))
                 self.spawned += 1
                 self.spawn_timer = max(.24, .86 - self.wave*.1)
-            if self.spawned >= spec["count"] and not any(not e.dead and not e.reached for e in self.enemies):
-                self.wave_active = False
-                self.wave += 1
-                bonus = 80 + self.wave*35
-                self.money += bonus
-                self.notify(f"Fase concluída! Bônus: {fmt_money(bonus)} abóboras. Pressione ESPAÇO.", 5)
-                if self.wave >= len(WAVES):
-                    self.completed = True
-                    self.notify("FAZENDA PROTEGIDA — Você venceu!", 10)
         for m in self.minions:
             m.update(dt, self.enemies)
         self.minions = [m for m in self.minions if not m.dead]
@@ -603,7 +761,7 @@ class Game:
                 e.update(dt)
             if e.reached and not e.dead:
                 e.dead = True
-                self.core_hp -= 10 + self.wave*2
+                self.core_hp -= int((10 + self.wave*2) * self.difficulty_spec["core_damage"])
                 self.notify("Um monstro invadiu o celeiro! Integridade reduzida.", 2)
                 if self.core_hp <= 0:
                     self.lost = True
@@ -622,6 +780,17 @@ class Game:
                 for _ in range(5):
                     self.particles.append([e.x,e.y,random.uniform(-70,70),random.uniform(-70,70),.35,e.kind])
         self.enemies = [e for e in self.enemies if not e.dead]
+        if (self.wave_active and not self.lost
+                and self.spawned >= WAVES[self.wave]["count"] and not self.enemies):
+            self.wave_active = False
+            self.wave += 1
+            bonus = 80 + self.wave*35
+            self.money += bonus
+            self.notify(f"Fase concluída! Bônus: {fmt_money(bonus)} abóboras. Pressione ESPAÇO.", 5)
+            if self.wave >= len(WAVES):
+                self.completed = True
+                self.save_completed_score()
+                self.notify("FAZENDA PROTEGIDA — Você venceu!", 10)
         for p in self.particles:
             p[0] += p[2]*dt; p[1] += p[3]*dt; p[4] -= dt
         self.particles = [p for p in self.particles if p[4] > 0]
@@ -720,11 +889,31 @@ class Game:
             screen.blit(text,(box.x+14,box.y+6))
         if self.completed or self.lost:
             veil=pygame.Surface((WIDTH,HEIGHT),pygame.SRCALPHA); veil.fill((8,3,16,205)); screen.blit(veil,(0,0))
-            title="FAZENDA PROTEGIDA!" if self.completed else "A COLHEITA FOI PERDIDA"
-            col=MINT if self.completed else RED
-            txt=HUGE.render(title,True,col); screen.blit(txt,(WIDTH//2-txt.get_width()//2,260))
-            sub=FONT.render("ENTER para jogar novamente  |  ESC para o menu",True,WHITE)
-            screen.blit(sub,(WIDTH//2-sub.get_width()//2,315))
+            title = "FAZENDA PROTEGIDA!" if self.completed else "A COLHEITA FOI PERDIDA"
+            col = MINT if self.completed else RED
+            txt = HUGE.render(title, True, col)
+            screen.blit(txt, (WIDTH//2-txt.get_width()//2, 225 if self.completed else 260))
+            if self.completed:
+                details = self.score_details
+                if details is None:
+                    raise RuntimeError("Vitória sem score calculado.")
+                score_text = BIG.render(f"SCORE GLOBAL: {details['score']:,}".replace(",", "."), True, ORANGE)
+                screen.blit(score_text, (WIDTH//2-score_text.get_width()//2, 282))
+                score_lines = [
+                    f"Integridade {details['health']} / 5.000  |  Tempo {details['time']} / 2.000  |  Melhorias {details['upgrades']} / 1.000",
+                    f"Talentos {details['talents']} / 500  |  Economia {details['savings']} / 1.500  |  Dificuldade {self.difficulty_spec['name']}",
+                    f"Tempo de partida: {format_duration(self.elapsed_seconds)}  |  Multiplicador: {details['multiplier']:.2f}x",
+                ]
+                for index, line in enumerate(score_lines):
+                    text = SMALL.render(line, True, WHITE)
+                    screen.blit(text, (WIDTH//2-text.get_width()//2, 330 + index*26))
+                if self.ranking_save_error:
+                    warning = SMALL.render("Não foi possível salvar o ranking; veja o terminal.", True, RED)
+                    screen.blit(warning, (WIDTH//2-warning.get_width()//2, 420))
+                prompt = FONT.render("ENTER: jogar novamente  |  R: ranking  |  ESC: menu", True, WHITE)
+            else:
+                prompt = FONT.render("ENTER para jogar novamente  |  ESC para o menu", True, WHITE)
+            screen.blit(prompt, (WIDTH//2-prompt.get_width()//2, 485 if self.completed else 315))
 
     def draw(self):
         screen.fill(BG)
@@ -803,7 +992,9 @@ class MenuScreen:
                     self.sel = i
                     return self.activate(i)
         elif event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_UP, pygame.K_w):
+            if event.key == pygame.K_r:
+                self.panel = "ranking"
+            elif event.key in (pygame.K_UP, pygame.K_w):
                 self.sel = (self.sel - 1) % len(self.ITEMS)
             elif event.key in (pygame.K_DOWN, pygame.K_s):
                 self.sel = (self.sel + 1) % len(self.ITEMS)
@@ -815,7 +1006,7 @@ class MenuScreen:
 
     # --- painéis ---
     def panel_rect(self):
-        return pygame.Rect(190, 60, 720, 600) if self.panel == "howto" else pygame.Rect(320, 200, 460, 330)
+        return pygame.Rect(190, 60, 720, 600) if self.panel in ("howto", "ranking") else pygame.Rect(320, 200, 460, 330)
 
     def back_rect(self):
         r = self.panel_rect()
@@ -866,6 +1057,35 @@ class MenuScreen:
             draw_text(k, x, cy, ORANGE, SMALL)
             draw_text(d, x+250, cy, WHITE, SMALL)
         draw_text("Moedas: abóboras. Ganhe ao derrotar monstros e concluir ondas.", x, y+455, MUTED, SMALL)
+        draw_text("R no menu: consultar o ranking local de cada dificuldade.", x, y+475, MUTED, SMALL)
+
+    def draw_ranking(self):
+        self.draw_panel_frame("RANKING LOCAL")
+        draw_text("Vitórias ordenadas por score — as 3 melhores de cada dificuldade.", 218, 132, MUTED, SMALL)
+        columns = [218, 274, 390, 500, 588, 710]
+        headers = ["#", "JOGADOR", "SCORE", "TEMPO", "CELEIRO", "DATA"]
+        for x, header in zip(columns, headers):
+            draw_text(header, x, 174, ORANGE, SMALL)
+        row = 0
+        for difficulty, info in DIFFICULTIES.items():
+            difficulty_color = RED if info["score_multiplier"] >= 1.25 else CYAN
+            draw_text(info["name"], 218, 205 + row * 28, difficulty_color, SMALL)
+            row += 1
+            records = leaderboard.records_for(difficulty)
+            if not records:
+                draw_text("Sem vitórias registradas", 250, 205 + row * 28, MUTED, SMALL)
+                row += 1
+                continue
+            for place, entry in enumerate(records[:3], 1):
+                y = 205 + row * 28
+                draw_text(str(place), columns[0], y, WHITE, SMALL)
+                draw_text(entry.get("player", "Fazendeiro")[:14], columns[1], y, WHITE, SMALL)
+                draw_text(f"{entry['score']:,}".replace(",", "."), columns[2], y, MINT, SMALL)
+                draw_text(format_duration(entry["time"]), columns[3], y, WHITE, SMALL)
+                draw_text(f"{entry.get('core_hp', 0)}%", columns[4], y, WHITE, SMALL)
+                draw_text(entry.get("date", "")[:16], columns[5], y, MUTED, SMALL)
+                row += 1
+        draw_text("O ranking fica salvo neste computador; não é enviado a um servidor.", 218, 558, MUTED, SMALL)
 
     def draw_settings(self):
         self.draw_panel_frame("CONFIGURAÇÕES")
@@ -904,18 +1124,24 @@ class MenuScreen:
         self.draw_selection()
         if self.panel == "howto":
             self.draw_howto()
+        elif self.panel == "ranking":
+            self.draw_ranking()
         elif self.panel == "settings":
             self.draw_settings()
+        if self.panel is None:
+            draw_text("R: ranking local", 58, 548, WHITE, SMALL)
         if self.time < self.FADE_IN:
             fade = pygame.Surface((WIDTH, HEIGHT))
             fade.set_alpha(int(255 * (1 - self.time / self.FADE_IN)))
             screen.blit(fade, (0, 0))
 
 
+leaderboard = Leaderboard()
+difficulty_screen = DifficultyScreen()
 game = Game()
 title = TitleScreen()
 menu = MenuScreen()
-state = "title"   # "title" -> tela inicial | "menu" -> menu principal | "playing" -> jogo
+state = "title"   # "title" -> tela inicial | "menu" -> menu principal | "difficulty" -> escolha | "playing" -> jogo
 running = True
 while running:
     dt = min(clock.tick(60)/1000, .04)
@@ -940,13 +1166,20 @@ while running:
         if state == "menu":
             action = menu.handle_event(event)
             if action == "play":
-                game = Game()
-                state = "playing"
+                state = "difficulty"
             elif action == "quit":
                 running = False
             elif action == "title":
                 title = TitleScreen()
                 state = "title"
+            continue
+        if state == "difficulty":
+            difficulty = difficulty_screen.handle_event(event)
+            if difficulty == "back":
+                state = "menu"
+            elif difficulty:
+                game = Game(difficulty)
+                state = "playing"
             continue
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -957,7 +1190,11 @@ while running:
                     state = "menu"
             elif game.completed or game.lost:
                 if event.key == pygame.K_RETURN:
-                    game = Game()
+                    game = Game(game.difficulty)
+                elif event.key == pygame.K_r and game.completed:
+                    menu.enter()
+                    menu.panel = "ranking"
+                    state = "menu"
             elif game.tree_open:
                 if event.key in (pygame.K_1,pygame.K_2,pygame.K_3):
                     game.buy_skill(event.key-pygame.K_1)
@@ -1000,6 +1237,8 @@ while running:
     elif state == "menu":
         menu.update(dt)
         menu.draw()
+    elif state == "difficulty":
+        difficulty_screen.draw(menu)
     else:
         game.update(dt)
         game.draw()

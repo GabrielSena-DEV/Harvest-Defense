@@ -30,7 +30,8 @@ Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco 
 
 ## Telas
 - **Tela inicial**: aperte qualquer tecla ou clique para ir ao menu (ESC sai).
-- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia), Como jogar e Sair. ESC volta à tela inicial.
+- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia), Como jogar e Sair. Pressione **R** para abrir o ranking. ESC volta à tela inicial.
+- **Dificuldade**: depois de escolher Jogar, selecione Fácil, Normal ou Difícil com as setas e ENTER, ou clique em uma opção.
 - **Durante o jogo**: ESC volta ao menu. **F11** alterna tela cheia em qualquer tela.
 
 ## Controles
@@ -44,6 +45,7 @@ Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco 
 - **1 / 2 / 3** na árvore: desbloquear um caminho.
 - **ESC**: fechar a árvore ou voltar ao menu.
 - **ENTER**: reiniciar após vitória ou derrota.
+- **R** após uma vitória: consultar o ranking.
 
 ## Mecânicas incluídas
 - Cinco fases com quantidade, resistência e velocidade dos monstros crescentes.
@@ -52,6 +54,8 @@ Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco 
 - Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Ritmo de Batalha (velocidade de ataque).
 - Pulso lunar especial, recarga, barras de vida, partículas e efeitos de impacto.
 - O celeiro tem integridade; monstros que chegam ao final a reduzem.
+- O score só é calculado e incluído no ranking após vencer as cinco ondas. A integridade do celeiro vale até 5.000 pontos; tempo, melhorias de torres, talentos e abóboras restantes completam a pontuação, que recebe um multiplicador conforme a dificuldade.
+- O ranking mantém as 10 melhores vitórias de cada dificuldade neste computador. Ele é salvo em `~/.harvest-defense/leaderboard.json` e não é enviado a um servidor.
 
 ## Arquivos
 - `main.py` — o jogo.
