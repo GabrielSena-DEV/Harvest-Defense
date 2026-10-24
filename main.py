@@ -41,6 +41,28 @@ MAP_RECT = pygame.Rect(24, 80, 1052, 470)
 PATH = [(30, 315), (165, 315), (165, 170), (360, 170), (360, 430),
         (560, 430), (560, 245), (760, 245), (760, 360), (1000, 360)]
 CORE = (1015, 360)   # o celeiro
+MAP_SCENES = {
+    0: {
+        "name": "fase_1",
+        "source_size": (1024, 768),
+        "path": [
+            (500, 758), (500, 565), (310, 565), (310, 400),
+            (110, 400), (110, 300), (230, 300), (230, 120), (920, 120),
+        ],
+        "core": (920, 120),
+    },
+    1: {
+        "name": "fase_2",
+        "source_size": (1024, 768),
+        "path": [
+            (0, 280), (115, 280), (115, 120), (315, 120),
+            (315, 280), (510, 280), (510, 205), (740, 205),
+            (740, 280), (980, 280),
+        ],
+        "core": (980, 280),
+    },
+}
+_SCENE_BACKGROUND_CACHE = {}
 TOWER_TYPES = [
     {"id": "scarecrow", "name": "Espantalho", "cost": 100, "range": 150, "damage": 20, "rate": 0.72, "color": CYAN, "desc": "Dano equilibrado"},
     {"id": "gargoyle", "name": "Gárgula", "cost": 170, "range": 170, "damage": 36, "rate": 1.3, "color": MINT, "desc": "Golpes pesados"},
@@ -196,8 +218,54 @@ def point_segment_distance(p, a, b):
     t = max(0, min(1, ((px-ax)*dx + (py-ay)*dy)/(dx*dx+dy*dy)))
     return dist(p, (ax+t*dx, ay+t*dy))
 
-def on_path(pos):
-    return any(point_segment_distance(pos, PATH[i], PATH[i+1]) < 28 for i in range(len(PATH)-1))
+def map_scene_for_wave(wave):
+    return MAP_SCENES.get(wave)
+
+def map_play_rect_for_scene(scene):
+    source_width, source_height = scene["source_size"]
+    play_width = round(MAP_RECT.height * source_width / source_height)
+    return pygame.Rect(
+        MAP_RECT.centerx - play_width // 2,
+        MAP_RECT.top,
+        play_width,
+        MAP_RECT.height,
+    )
+
+def map_play_rect_for_wave(wave):
+    scene = map_scene_for_wave(wave)
+    return map_play_rect_for_scene(scene) if scene else MAP_RECT
+
+def path_for_wave(wave):
+    scene = map_scene_for_wave(wave)
+    if scene is None:
+        return PATH
+    source_width, source_height = scene["source_size"]
+    play_rect = map_play_rect_for_scene(scene)
+    return [
+        (
+            play_rect.left + round(x * play_rect.width / source_width),
+            play_rect.top + round(y * play_rect.height / source_height),
+        )
+        for x, y in scene["path"]
+    ]
+
+def core_for_wave(wave):
+    scene = map_scene_for_wave(wave)
+    if scene is None:
+        return CORE
+    return core_for_scene(scene)
+
+def core_for_scene(scene):
+    source_width, source_height = scene["source_size"]
+    play_rect = map_play_rect_for_scene(scene)
+    x, y = scene["core"]
+    return (
+        play_rect.left + round(x * play_rect.width / source_width),
+        play_rect.top + round(y * play_rect.height / source_height),
+    )
+
+def on_path(pos, path=PATH, radius=28):
+    return any(point_segment_distance(pos, path[i], path[i+1]) < radius for i in range(len(path)-1))
 
 class Monster:
     def __init__(self, wave, difficulty, kind=None):
@@ -220,7 +288,8 @@ class Monster:
             speed_multiplier = boss_spec["speed"]
             armor = boss_spec["armor"]
             reward_multiplier = boss_spec["reward"]
-        self.x, self.y = PATH[0]
+        self.path = path_for_wave(wave)
+        self.x, self.y = self.path[0]
         self.segment = 0
         self.progress = 0.0
         self.max_hp = spec["hp"] * hp_multiplier * difficulty_spec["enemy_hp"] * random.uniform(.96, 1.04)
@@ -298,10 +367,10 @@ class Monster:
             self.vigor_multiplier = 1
 
         self.hp = min(self.max_hp, self.hp + self.regen * dt)
-        if self.segment >= len(PATH)-1:
+        if self.segment >= len(self.path)-1:
             self.reached = True
             return spawned
-        target = PATH[self.segment+1]
+        target = self.path[self.segment+1]
         dx, dy = target[0]-self.x, target[1]-self.y
         length = math.hypot(dx, dy)
         slow_factor = min(getattr(self, "slow_factor", 1), .4 if self.hero_slow_timer > 0 else 1)
@@ -309,7 +378,7 @@ class Monster:
         if length <= step:
             self.x, self.y = target
             self.segment += 1
-            if self.segment >= len(PATH)-1:
+            if self.segment >= len(self.path)-1:
                 self.reached = True
         elif length:
             self.x += dx/length*step
@@ -1053,32 +1122,74 @@ class TitleScreen:
             screen.blit(fade, (0, 0))
 
 # ---------- cenário (desenhado uma vez e reaproveitado) ----------
-_MAP_CACHE = None
+_MAP_CACHE = {}
 
-def build_map_surface():
+def build_map_surface(path=PATH, scene=None):
+    cache_key = scene["name"] if scene else "classic"
+    if cache_key in _MAP_CACHE:
+        return _MAP_CACHE[cache_key]
+
     surf = pygame.Surface((WIDTH, HEIGHT))
+    background = None
+    if scene:
+        if scene["name"] not in _SCENE_BACKGROUND_CACHE:
+            background_path = os.path.join(BASE_DIR, "assets", "backgrounds", f"{scene['name']}.png")
+            try:
+                image = pygame.image.load(background_path).convert()
+                play_rect = map_play_rect_for_scene(scene)
+                artwork = pygame.transform.smoothscale(image, play_rect.size)
+                low_resolution = pygame.transform.smoothscale(image, (64, 48))
+                backdrop = pygame.transform.smoothscale(low_resolution, MAP_RECT.size)
+                _SCENE_BACKGROUND_CACHE[scene["name"]] = {
+                    "artwork": artwork,
+                    "backdrop": backdrop,
+                }
+            except (pygame.error, OSError) as error:
+                _SCENE_BACKGROUND_CACHE[scene["name"]] = None
+                print(f"Não foi possível carregar o cenário '{background_path}': {error}", file=sys.stderr)
+        background = _SCENE_BACKGROUND_CACHE[scene["name"]]
+
+    if background:
+        surf.fill(BG)
+        surf.blit(background["backdrop"], MAP_RECT.topleft)
+        shade = pygame.Surface(MAP_RECT.size, pygame.SRCALPHA)
+        shade.fill((12, 7, 20, 145))
+        surf.blit(shade, MAP_RECT.topleft)
+        play_rect = map_play_rect_for_scene(scene)
+        surf.blit(background["artwork"], play_rect.topleft)
+        pygame.draw.rect(surf, BORDER, play_rect, 2, border_radius=8)
+        pygame.draw.rect(surf, BORDER, MAP_RECT, 2, border_radius=12)
+        if scene["name"] == "fase_2":
+            label_rect = pygame.Rect(MAP_RECT.centerx - 90, MAP_RECT.top + 5, 180, 28)
+            pygame.draw.rect(surf, (24, 15, 35), label_rect, border_radius=7)
+            pygame.draw.rect(surf, BORDER, label_rect, 1, border_radius=7)
+            draw_centered_text("FASE 2", label_rect.center, WHITE, SMALL, surf)
+        _MAP_CACHE[cache_key] = surf
+        return surf
+
     surf.fill(BG)
     pygame.draw.rect(surf, GRASS_A, MAP_RECT, border_radius=12)
-    surf.set_clip(MAP_RECT)
+    play_rect = map_play_rect_for_scene(scene) if scene else MAP_RECT
+    surf.set_clip(play_rect)
     rnd = random.Random(11)
-    for gx in range(MAP_RECT.left, MAP_RECT.right, 28):
-        for gy in range(MAP_RECT.top, MAP_RECT.bottom, 28):
-            if ((gx - MAP_RECT.left)//28 + (gy - MAP_RECT.top)//28) % 2:
+    for gx in range(play_rect.left, play_rect.right, 28):
+        for gy in range(play_rect.top, play_rect.bottom, 28):
+            if ((gx - play_rect.left)//28 + (gy - play_rect.top)//28) % 2:
                 pygame.draw.rect(surf, GRASS_B, (gx, gy, 28, 28))
     for _ in range(220):   # tufos de grama
-        gx, gy = rnd.randint(MAP_RECT.left, MAP_RECT.right), rnd.randint(MAP_RECT.top, MAP_RECT.bottom)
+        gx, gy = rnd.randint(play_rect.left, play_rect.right), rnd.randint(play_rect.top, play_rect.bottom)
         pygame.draw.line(surf, (24, 52, 40), (gx, gy), (gx-2, gy-5), 1)
         pygame.draw.line(surf, (24, 52, 40), (gx, gy), (gx+2, gy-5), 1)
     # estrada de terra
-    pygame.draw.lines(surf, DIRT_EDGE, False, PATH, 46)
-    for px, py in PATH:
+    pygame.draw.lines(surf, DIRT_EDGE, False, path, 46)
+    for px, py in path:
         pygame.draw.circle(surf, DIRT_EDGE, (px, py), 23)
-    pygame.draw.lines(surf, DIRT, False, PATH, 38)
-    for px, py in PATH:
+    pygame.draw.lines(surf, DIRT, False, path, 38)
+    for px, py in path:
         pygame.draw.circle(surf, DIRT, (px, py), 19)
     for _ in range(140):   # pedrinhas
-        i = rnd.randrange(len(PATH)-1)
-        a, b = PATH[i], PATH[i+1]
+        i = rnd.randrange(len(path)-1)
+        a, b = path[i], path[i+1]
         t = rnd.random()
         px = a[0] + (b[0]-a[0])*t + rnd.uniform(-13, 13)
         py = a[1] + (b[1]-a[1])*t + rnd.uniform(-13, 13)
@@ -1086,13 +1197,14 @@ def build_map_surface():
     # decoração (fora da estrada)
     placed = 0
     tries = 0
+    scene_core = core_for_scene(scene) if scene else CORE
     while placed < 34 and tries < 600:
         tries += 1
-        x = rnd.randint(MAP_RECT.left + 16, MAP_RECT.right - 16)
-        y = rnd.randint(MAP_RECT.top + 16, MAP_RECT.bottom - 16)
-        if any(point_segment_distance((x, y), PATH[i], PATH[i+1]) < 52 for i in range(len(PATH)-1)):
+        x = rnd.randint(play_rect.left + 16, play_rect.right - 16)
+        y = rnd.randint(play_rect.top + 16, play_rect.bottom - 16)
+        if any(point_segment_distance((x, y), path[i], path[i+1]) < 52 for i in range(len(path)-1)):
             continue
-        if dist((x, y), CORE) < 80:
+        if dist((x, y), scene_core) < 80:
             continue
         kind = rnd.choice(["pumpkin", "pumpkin", "hay", "tomb", "tree", "mush"])
         if kind == "pumpkin":
@@ -1114,7 +1226,13 @@ def build_map_surface():
             pygame.draw.ellipse(surf, (170, 70, 200), (x-6, y-8, 12, 8))
         placed += 1
     surf.set_clip(None)
-    pygame.draw.rect(surf, BORDER, MAP_RECT, 2, border_radius=12)
+    pygame.draw.rect(surf, BORDER, play_rect, 2, border_radius=8 if scene else 12)
+    if scene and scene["name"] == "fase_2":
+        label_rect = pygame.Rect(MAP_RECT.centerx - 90, MAP_RECT.top + 5, 180, 28)
+        pygame.draw.rect(surf, (24, 15, 35), label_rect, border_radius=7)
+        pygame.draw.rect(surf, BORDER, label_rect, 1, border_radius=7)
+        draw_centered_text("FASE 2", label_rect.center, WHITE, SMALL, surf)
+    _MAP_CACHE[cache_key] = surf
     return surf
 
 class Game:
@@ -1220,7 +1338,7 @@ class Game:
             return
 
         enemies = [enemy for enemy in self.enemies if not enemy.dead and not enemy.reached]
-        if self.hero_id in ("coan", "inacio", "jair") and not MAP_RECT.collidepoint(target_pos):
+        if self.hero_id in ("coan", "inacio", "jair") and not map_play_rect_for_wave(self.wave).collidepoint(target_pos):
             self.notify("Aponte o cursor para uma área do mapa e pressione G.")
             return
 
@@ -1264,7 +1382,10 @@ class Game:
         self.hero_cooldown = self.hero["cooldown"]
 
     def buy_tower(self, pos):
-        if not MAP_RECT.collidepoint(pos) or on_path(pos):
+        scene = map_scene_for_wave(self.wave)
+        path_radius = 34 if scene else 28
+        if (not map_play_rect_for_wave(self.wave).collidepoint(pos)
+                or on_path(pos, path_for_wave(self.wave), path_radius)):
             self.notify("Posicione a torre fora da estrada dos monstros.")
             return
         if not profile.tower_is_unlocked(self.selected_kind):
@@ -1480,8 +1601,22 @@ class Game:
             p[0] += p[2]*dt; p[1] += p[3]*dt; p[4] -= dt
         self.particles = [p for p in self.particles if p[4] > 0]
 
-    def draw_barn(self):
-        cx, cy = CORE
+    def draw_barn(self, scene=None):
+        core = core_for_wave(self.wave)
+        cx, cy = core
+        if scene:
+            pygame.draw.circle(screen, (32, 18, 38), core, 16)
+            pygame.draw.circle(screen, ORANGE, core, 12, 2)
+            pygame.draw.circle(screen, WHITE, core, 3)
+            bar_width = 40
+            pygame.draw.rect(screen, (38, 24, 52), (cx-bar_width//2, cy-24, bar_width, 5), border_radius=3)
+            pygame.draw.rect(
+                screen,
+                MINT if self.core_hp > 35 else RED,
+                (cx-bar_width//2, cy-24, int(bar_width*max(0, self.core_hp)/100), 5),
+                border_radius=3,
+            )
+            return
         pygame.draw.circle(screen, (46, 30, 62), CORE, 38)
         pygame.draw.rect(screen, (140, 42, 44), (cx-22, cy-12, 44, 34), border_radius=3)
         pygame.draw.polygon(screen, (92, 28, 32), [(cx-27, cy-10), (cx, cy-34), (cx+27, cy-10)])
@@ -1496,13 +1631,18 @@ class Game:
         pygame.draw.rect(screen, MINT if ok else RED, (cx-w//2, cy-48, int(w*max(0, self.core_hp)/100), 6), border_radius=3)
 
     def draw_map(self):
-        global _MAP_CACHE
-        if _MAP_CACHE is None:
-            _MAP_CACHE = build_map_surface()
-        screen.blit(_MAP_CACHE, (0, 0))
-        self.draw_barn()
+        scene = map_scene_for_wave(self.wave)
+        _map_surface = build_map_surface(path_for_wave(self.wave), scene)
+        screen.blit(_map_surface, (0, 0))
+        self.draw_barn(scene)
         if self.special_flash > 0:
-            pygame.draw.circle(screen, (255, 240, 170), CORE, int(50+(0.4-self.special_flash)*220), 3)
+            pygame.draw.circle(
+                screen,
+                (255, 240, 170),
+                core_for_wave(self.wave),
+                int(50+(0.4-self.special_flash)*220),
+                3,
+            )
         for t in self.towers:
             t.draw(screen, t is self.selected_tower)
         for m in self.minions:
