@@ -10,7 +10,7 @@ import pygame
 # Controles: clique em uma torre no painel inferior e depois no mapa para posicioná-la.
 # Clique em uma torre já colocada para selecioná-la. Espaço: iniciar/próxima onda.
 # 1-6: selecionar torre. U: melhorar torre selecionada. F: pulso lunar.
-# T: árvore de habilidades. ESC: voltar ao menu. F11: tela cheia.
+# T: ver habilidades equipadas. ESC: voltar ao menu. F11: tela cheia.
 
 pygame.init()
 pygame.display.set_caption("HARVEST DEFENSE — Proteja a fazenda. Defenda a colheita.")
@@ -68,6 +68,15 @@ DIFFICULTIES = {
     "normal": {"name": "MÉDIO", "wave_count": 9, "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
     "dificil": {"name": "DIFÍCIL", "wave_count": 12, "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
 }
+SKILLS = [
+    {"id": "sharpshooter", "name": "Mira de Precisão", "description": "Torres causam 10% mais dano.", "cost": 3},
+    {"id": "rapid_fire", "name": "Rajada Rápida", "description": "Torres atacam 8% mais rápido.", "cost": 3},
+    {"id": "prepared_defense", "name": "Defesa Preparada", "description": "Comece cada campanha com +100 abóboras.", "cost": 3},
+    {"id": "reinforced_barn", "name": "Celeiro Reforçado", "description": "Reduz em 10% o dano sofrido pelo celeiro.", "cost": 4},
+    {"id": "harvest_bounty", "name": "Recompensa da Colheita", "description": "Ganhe 15% mais abóboras por inimigo derrotado.", "cost": 4},
+    {"id": "lunar_focus", "name": "Foco Lunar", "description": "Pulso lunar recarrega 20% mais rápido e causa +20% de dano.", "cost": 5},
+    {"id": "frost_runes", "name": "Runas Gélidas", "description": "Todos os inimigos avançam 15% mais devagar.", "cost": 5},
+]
 ENEMY_ARCHETYPES = {
     "zombie": {"hp": 1.7, "speed": 0.65, "armor": 0, "regen": 0, "pack": False},
     "skeleton": {"hp": 0.72, "speed": 1.08, "armor": 0, "regen": 0, "pack": False},
@@ -91,12 +100,34 @@ ENEMY_POOLS = [
     ("zombie", "ghost", "bat", "spider", "moth", "vampire", "mummy", "pumpkin"),
     ("zombie", "ghost", "bat", "spider", "moth", "vampire", "mummy", "frankenstein", "pumpkin"),
 ]
+BOSS_SEQUENCE = ("skeleton_bomber", "vampire_lord", "king_ghost", "pop_king")
+BOSS_NAMES = {
+    "skeleton_bomber": "Esqueleto Cbum",
+    "vampire_lord": "Lorde Vampiro",
+    "king_ghost": "Rei Fantasma",
+    "pop_king": "Rei do Pop",
+}
+BOSS_ARCHETYPES = {
+    "skeleton_bomber": {"base_kind": "skeleton", "hp": 4.0, "speed": 0.78, "armor": 0.12, "reward": 5.0},
+    "vampire_lord": {"base_kind": "vampire", "hp": 4.5, "speed": 0.95, "armor": 0.12, "reward": 5.5},
+    "king_ghost": {"base_kind": "ghost", "hp": 4.0, "speed": 1.05, "armor": 0, "reward": 5.0},
+    "pop_king": {"base_kind": "zombie", "hp": 5.0, "speed": 0.82, "armor": 0.18, "reward": 6.0},
+}
+
+def boss_for_wave(wave):
+    if (wave + 1) % 3:
+        return None
+    chapter = (wave + 1) // 3 - 1
+    return BOSS_SEQUENCE[chapter % len(BOSS_SEQUENCE)]
+
 # cor das partículas ao derrotar cada tipo de monstro
 KIND_COLORS = {
     "ghost": (235, 235, 255), "slime": PURPLE, "zombie": MINT, "pumpkin": ORANGE,
     "skeleton": (218, 211, 185), "bat": (112, 78, 142), "spider": (68, 55, 48),
     "moth": (221, 199, 136), "vampire": (170, 40, 68), "mummy": (191, 169, 119),
     "frankenstein": (95, 158, 112),
+    "skeleton_bomber": (225, 112, 65), "vampire_lord": (174, 34, 64),
+    "king_ghost": (120, 224, 245), "pop_king": (184, 188, 112),
 }
 
 def fmt_money(n):
@@ -149,39 +180,103 @@ class Monster:
     def __init__(self, wave, difficulty, kind=None):
         spec = WAVES[wave]
         difficulty_spec = DIFFICULTIES[difficulty]
+        self.wave_index = wave
+        self.difficulty = difficulty
         self.kind = kind or random.choice(ENEMY_POOLS[min(wave, len(ENEMY_POOLS) - 1)])
-        archetype = ENEMY_ARCHETYPES[self.kind]
+        boss_spec = BOSS_ARCHETYPES.get(self.kind)
+        self.is_boss = boss_spec is not None
+        if boss_spec is None:
+            archetype = ENEMY_ARCHETYPES[self.kind]
+            hp_multiplier = archetype["hp"]
+            speed_multiplier = archetype["speed"]
+            armor = archetype["armor"]
+            reward_multiplier = archetype["hp"] ** 0.35
+        else:
+            archetype = ENEMY_ARCHETYPES[boss_spec["base_kind"]]
+            hp_multiplier = boss_spec["hp"]
+            speed_multiplier = boss_spec["speed"]
+            armor = boss_spec["armor"]
+            reward_multiplier = boss_spec["reward"]
         self.x, self.y = PATH[0]
         self.segment = 0
         self.progress = 0.0
-        self.max_hp = spec["hp"] * archetype["hp"] * difficulty_spec["enemy_hp"] * random.uniform(.92, 1.08)
+        self.max_hp = spec["hp"] * hp_multiplier * difficulty_spec["enemy_hp"] * random.uniform(.96, 1.04)
         self.hp = self.max_hp
-        self.speed = spec["speed"] * archetype["speed"] * difficulty_spec["enemy_speed"] * random.uniform(.92, 1.08)
-        self.armor = archetype["armor"]
+        self.speed = spec["speed"] * speed_multiplier * difficulty_spec["enemy_speed"] * random.uniform(.96, 1.04)
+        self.armor = armor
         self.regen = archetype["regen"]
         self.ignores_summons = archetype.get("ignores_summons", False)
-        self.reward = max(1, round(spec["reward"] * archetype["hp"] ** 0.35))
-        self.radius = random.choice([10, 11, 12]) + wave // 3
+        if self.kind == "king_ghost":
+            self.ignores_summons = False
+        self.reward = max(1, round(spec["reward"] * reward_multiplier))
+        self.radius = random.choice([10, 11, 12]) + wave // 3 + (8 if self.is_boss else 0)
         self.slime_color = random.choice([(150, 78, 210), (255, 150, 40)])
         self.phase = random.uniform(0, 6.28)
         self.dead = False
         self.reached = False
         self.hit_flash = 0
+        self.intangible = False
+        self.intangible_timer = 0
+        self.phase_charge = 0
+        self.phase_used = False
+        self.heal_cooldown = 0
+        self.vigor_multiplier = 1
+        self.summoned_at_half_health = False
+        self.summons_on_death_done = False
 
     def take_damage(self, amount):
+        if self.intangible:
+            return
         self.hp -= max(1, amount * (1 - self.armor))
         if self.hp <= 0:
             self.dead = True
 
-    def update(self, dt):
+    def create_minions(self, count, kind):
+        minions = []
+        for _ in range(count):
+            minion = Monster(self.wave_index, self.difficulty, kind)
+            minion.x, minion.y = self.x, self.y
+            minion.segment = self.segment
+            minions.append(minion)
+        return minions
+
+    def update(self, dt, allied_minions=()):
+        spawned = []
+        self.heal_cooldown = max(0, self.heal_cooldown - dt)
+        if self.intangible:
+            self.intangible_timer -= dt
+            if self.intangible_timer <= 0:
+                self.intangible = False
+
+        if self.kind == "vampire_lord" and self.heal_cooldown <= 0:
+            if any(dist((self.x, self.y), (unit.x, unit.y)) < 48 for unit in allied_minions):
+                self.hp = min(self.max_hp, self.hp + self.max_hp * 0.05)
+                self.heal_cooldown = 2.5
+
+        if self.kind == "king_ghost" and not self.phase_used and self.hp <= self.max_hp * 0.3:
+            self.phase_charge += dt * (0.25 if getattr(self, "slow_factor", 1) < 1 else 1)
+            if self.phase_charge >= 2.5:
+                self.intangible = True
+                self.intangible_timer = 3
+                self.phase_used = True
+
+        if self.kind == "pop_king" and not self.summoned_at_half_health and self.hp <= self.max_hp * 0.5:
+            self.summoned_at_half_health = True
+            spawned.extend(self.create_minions(4, "zombie"))
+
+        if self.kind == "pop_king":
+            self.vigor_multiplier = 1.25
+        else:
+            self.vigor_multiplier = 1
+
         self.hp = min(self.max_hp, self.hp + self.regen * dt)
         if self.segment >= len(PATH)-1:
             self.reached = True
-            return
+            return spawned
         target = PATH[self.segment+1]
         dx, dy = target[0]-self.x, target[1]-self.y
         length = math.hypot(dx, dy)
-        step = self.speed * dt * getattr(self, "slow_factor", 1)
+        step = self.speed * self.vigor_multiplier * dt * getattr(self, "slow_factor", 1)
         if length <= step:
             self.x, self.y = target
             self.segment += 1
@@ -191,13 +286,53 @@ class Monster:
             self.x += dx/length*step
             self.y += dy/length*step
         self.hit_flash = max(0, self.hit_flash-dt)
+        return spawned
+
+    def on_death(self):
+        if self.kind == "skeleton_bomber" and not self.summons_on_death_done:
+            self.summons_on_death_done = True
+            return self.create_minions(4, "skeleton")
+        return []
 
     def draw(self, surface):
         r = self.radius
         bob = int(math.sin(pygame.time.get_ticks()/140 + self.phase) * 2)
         x, y = int(self.x), int(self.y) + bob
         dark = (28, 14, 36)
-        if self.kind == "ghost":
+        if self.is_boss:
+            if self.kind == "pop_king":
+                pygame.draw.circle(surface, (214, 190, 90), (x, y), 125, 1)
+            boss_color = {
+                "skeleton_bomber": (225, 112, 65),
+                "vampire_lord": (174, 34, 64),
+                "king_ghost": (120, 224, 245),
+                "pop_king": (184, 188, 112),
+            }[self.kind]
+            pygame.draw.circle(surface, (32, 18, 38), (x, y), r + 4)
+            pygame.draw.circle(surface, boss_color, (x, y), r)
+            pygame.draw.circle(surface, ORANGE if self.kind == "skeleton_bomber" else WHITE, (x, y), r + 3, 2)
+            if self.kind == "skeleton_bomber":
+                pygame.draw.circle(surface, (245, 230, 194), (x, y-2), r//2)
+                pygame.draw.circle(surface, dark, (x-r//5, y-3), max(2, r//8))
+                pygame.draw.circle(surface, dark, (x+r//5, y-3), max(2, r//8))
+                pygame.draw.circle(surface, RED, (x, y+r//4), max(2, r//6))
+            elif self.kind == "vampire_lord":
+                pygame.draw.polygon(surface, (62, 16, 39), [(x-r, y), (x-r//2, y+r), (x, y+r//2), (x+r//2, y+r), (x+r, y)])
+                pygame.draw.circle(surface, RED, (x-r//4, y-2), max(2, r//8))
+                pygame.draw.circle(surface, RED, (x+r//4, y-2), max(2, r//8))
+            elif self.kind == "king_ghost":
+                pygame.draw.polygon(surface, (220, 242, 255), [(x-r//2, y-r//2), (x-r//3, y-r), (x, y-r//2), (x+r//3, y-r), (x+r//2, y-r//2)])
+                pygame.draw.circle(surface, dark, (x-r//4, y), max(2, r//8))
+                pygame.draw.circle(surface, dark, (x+r//4, y), max(2, r//8))
+                if self.intangible:
+                    pygame.draw.circle(surface, CYAN, (x, y), r + 8, 2)
+            else:
+                pygame.draw.rect(surface, (45, 48, 44), (x-r//2, y-r//2, r, r+5), border_radius=4)
+                pygame.draw.circle(surface, (30, 24, 22), (x-r//4, y-r//4), max(2, r//9))
+                pygame.draw.circle(surface, (30, 24, 22), (x+r//4, y-r//4), max(2, r//9))
+                pygame.draw.polygon(surface, (38, 24, 30), [(x-r, y), (x-r//2, y+r), (x, y+r//2), (x+r//2, y+r), (x+r, y)])
+                pygame.draw.line(surface, WHITE, (x-r//2, y-r), (x+r//2, y-r), 2)
+        elif self.kind == "ghost":
             body = (226, 230, 255)
             pygame.draw.circle(surface, body, (x, y-2), r)
             pygame.draw.rect(surface, body, (x-r, y-2, r*2, r))
@@ -280,9 +415,16 @@ class Monster:
             pygame.draw.circle(surface, WHITE, (x, y), r+2, 3)
         # barra de vida
         y0 = int(self.y)
-        w = 30
-        pygame.draw.rect(surface, (38, 24, 52), (x-w//2, y0-r-11, w, 4), border_radius=2)
-        pygame.draw.rect(surface, MINT, (x-w//2, y0-r-11, int(w*max(0, self.hp/self.max_hp)), 4), border_radius=2)
+        bar_width = 46 if self.is_boss else 30
+        pygame.draw.rect(surface, (38, 24, 52), (x-bar_width//2, y0-r-11, bar_width, 5 if self.is_boss else 4), border_radius=2)
+        health_color = ORANGE if self.is_boss else MINT
+        pygame.draw.rect(surface, health_color, (x-bar_width//2, y0-r-11, int(bar_width*max(0, self.hp/self.max_hp)), 5 if self.is_boss else 4), border_radius=2)
+        if self.is_boss:
+            name = SMALL.render(BOSS_NAMES[self.kind], True, ORANGE)
+            surface.blit(name, (x-name.get_width()//2, y0-r-30))
+            if self.kind == "king_ghost" and self.intangible:
+                phase_label = SMALL.render("INTANGÍVEL", True, CYAN)
+                surface.blit(phase_label, (x-phase_label.get_width()//2, y0-r-45))
 
 class AlliedMinion:
     def __init__(self, pos, damage):
@@ -303,7 +445,7 @@ class AlliedMinion:
         if self.hp <= 0 or self.lifetime <= 0:
             self.dead = True
             return
-        candidates = [e for e in enemies if not e.dead and not e.reached and not e.ignores_summons]
+        candidates = [e for e in enemies if not e.dead and not e.reached and not e.ignores_summons and not e.intangible]
         if not candidates:
             return
         self.target = min(candidates, key=lambda e: dist((self.x, self.y), (e.x, e.y)))
@@ -352,7 +494,11 @@ class Tower:
 
     def update(self, dt, enemies, bullets, minions):
         self.cooldown = max(0, self.cooldown-dt)
-        candidates = [e for e in enemies if not e.dead and not e.reached and dist((self.x,self.y),(e.x,e.y)) <= self.range]
+        candidates = [
+            e for e in enemies
+            if not e.dead and not e.reached and not e.intangible
+            and dist((self.x,self.y),(e.x,e.y)) <= self.range
+        ]
         if candidates:
             self.target = max(candidates, key=lambda e: e.segment + e.progress)
             self.angle = math.atan2(self.target.y-self.y, self.target.x-self.x)
@@ -423,14 +569,14 @@ class Bullet:
         self.dead = False
 
     def update(self, dt, enemies):
-        if self.target.dead or self.target.reached:
+        if self.target.dead or self.target.reached or self.target.intangible:
             self.dead = True
             return
         dx, dy = self.target.x-self.x, self.target.y-self.y
         length = math.hypot(dx,dy)
         if length < self.speed*dt + 5:
             for enemy in enemies:
-                if (not enemy.dead and not enemy.reached
+                if (not enemy.dead and not enemy.reached and not enemy.intangible
                         and (enemy is self.target or
                              (self.area_radius and dist((self.target.x, self.target.y), (enemy.x, enemy.y)) <= self.area_radius))):
                     enemy.take_damage(self.damage)
@@ -509,6 +655,141 @@ class Leaderboard:
             return str(error)
         return None
 
+class PlayerProfile:
+    """Moedas e habilidades permanentes do jogador."""
+    MAX_EQUIPPED_SKILLS = 3
+
+    def __init__(self):
+        self.path = os.path.join(os.path.expanduser("~"), ".harvest-defense", "profile.json")
+        self.brains = 0
+        self.unlocked_skills = set()
+        self.equipped_skills = []
+        self.last_error = None
+        self.load()
+
+    def load(self):
+        try:
+            with open(self.path, "r", encoding="utf-8") as profile_file:
+                data = json.load(profile_file)
+        except FileNotFoundError:
+            return
+        except (OSError, json.JSONDecodeError) as error:
+            self.last_error = f"Não foi possível carregar o perfil: {error}"
+            print(self.last_error, file=sys.stderr)
+            return
+
+        if not isinstance(data, dict):
+            self.last_error = "Arquivo de perfil inválido; progresso iniciado vazio."
+            print(self.last_error, file=sys.stderr)
+            return
+
+        brains = data.get("brains", 0)
+        unlocked = data.get("unlocked_skills", [])
+        equipped = data.get("equipped_skills", [])
+        valid_ids = {skill["id"] for skill in SKILLS}
+        invalid_data = (
+            ("brains" in data and (
+                not isinstance(brains, int) or isinstance(brains, bool) or brains < 0
+            ))
+            or ("unlocked_skills" in data and (
+                not isinstance(unlocked, list)
+                or any(not isinstance(skill_id, str) or skill_id not in valid_ids for skill_id in unlocked)
+            ))
+            or ("equipped_skills" in data and (
+                not isinstance(equipped, list)
+                or any(not isinstance(skill_id, str) or skill_id not in valid_ids for skill_id in equipped)
+            ))
+        )
+        if invalid_data:
+            self.last_error = "O perfil contém dados inválidos; campos inválidos foram ignorados."
+            print(self.last_error, file=sys.stderr)
+        if isinstance(brains, int) and not isinstance(brains, bool) and brains >= 0:
+            self.brains = brains
+        if isinstance(unlocked, list):
+            self.unlocked_skills = {
+                skill_id for skill_id in unlocked
+                if isinstance(skill_id, str) and skill_id in valid_ids
+            }
+        if isinstance(equipped, list):
+            self.equipped_skills = []
+            for skill_id in equipped:
+                if (isinstance(skill_id, str) and skill_id in self.unlocked_skills
+                        and skill_id not in self.equipped_skills):
+                    self.equipped_skills.append(skill_id)
+                    if len(self.equipped_skills) == self.MAX_EQUIPPED_SKILLS:
+                        break
+
+    def save(self):
+        try:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            temporary_path = self.path + ".tmp"
+            with open(temporary_path, "w", encoding="utf-8") as profile_file:
+                json.dump({
+                    "brains": self.brains,
+                    "unlocked_skills": sorted(self.unlocked_skills),
+                    "equipped_skills": self.equipped_skills,
+                }, profile_file, ensure_ascii=False, indent=2)
+            os.replace(temporary_path, self.path)
+        except OSError as error:
+            self.last_error = f"Não foi possível salvar o perfil: {error}"
+            print(self.last_error, file=sys.stderr)
+            return self.last_error
+        self.last_error = None
+        return None
+
+    def award_brains(self, core_hp):
+        reward = 1 if core_hp > 25 else 0
+        if reward:
+            self.brains += reward
+            error = self.save()
+            if error:
+                self.brains -= reward
+                return 0, error
+        return reward, None
+
+    def purchase_skill(self, skill):
+        skill_id = skill["id"]
+        if skill_id in self.unlocked_skills:
+            return "Essa habilidade já foi desbloqueada."
+        if self.brains < skill["cost"]:
+            return "Cérebros insuficientes para essa habilidade."
+        self.brains -= skill["cost"]
+        self.unlocked_skills.add(skill_id)
+        equipped = False
+        if len(self.equipped_skills) < self.MAX_EQUIPPED_SKILLS:
+            self.equipped_skills.append(skill_id)
+            equipped = True
+        error = self.save()
+        if error:
+            self.brains += skill["cost"]
+            self.unlocked_skills.remove(skill_id)
+            if equipped:
+                self.equipped_skills.remove(skill_id)
+            return error
+        status = "desbloqueada e equipada" if equipped else "desbloqueada; equipe pelo menu"
+        return f"Habilidade {status}: {skill['name']}."
+
+    def toggle_skill(self, skill):
+        skill_id = skill["id"]
+        if skill_id not in self.unlocked_skills:
+            return self.purchase_skill(skill)
+        if skill_id in self.equipped_skills:
+            self.equipped_skills.remove(skill_id)
+            message = f"Habilidade removida: {skill['name']}."
+        else:
+            if len(self.equipped_skills) >= self.MAX_EQUIPPED_SKILLS:
+                return f"Limite de {self.MAX_EQUIPPED_SKILLS} habilidades equipadas."
+            self.equipped_skills.append(skill_id)
+            message = f"Habilidade equipada: {skill['name']}."
+        error = self.save()
+        if error:
+            if skill_id in self.equipped_skills:
+                self.equipped_skills.remove(skill_id)
+            else:
+                self.equipped_skills.append(skill_id)
+            return error
+        return message
+
 class DifficultyScreen:
     OPTIONS = [
         ("facil", MINT),
@@ -562,6 +843,14 @@ class DifficultyScreen:
                 screen.blit(text, (rect.centerx - text.get_width() // 2, rect.y + 78 + line_index * 24))
         subtitle = FONT.render("Setas / A-D e ENTER ou clique para confirmar", True, WHITE)
         screen.blit(subtitle, (WIDTH // 2 - subtitle.get_width() // 2, 520))
+        equipped_names = [skill["name"] for skill in SKILLS if skill["id"] in profile.equipped_skills]
+        loadout = ", ".join(equipped_names) if equipped_names else "nenhuma"
+        status = SMALL.render(
+            f"Cérebros: {profile.brains}  |  Equipamento: {loadout}  |  B no menu para alterar",
+            True,
+            PURPLE,
+        )
+        screen.blit(status, (WIDTH // 2 - status.get_width() // 2, 558))
 
 class TitleScreen:
     """Tela inicial: arte em 1100x720, texto piscando e brasas flutuando."""
@@ -677,10 +966,11 @@ def build_map_surface():
     return surf
 
 class Game:
-    def __init__(self, difficulty="normal"):
+    def __init__(self, difficulty="normal", equipped_skills=None):
         self.difficulty = difficulty
         self.difficulty_spec = DIFFICULTIES[difficulty]
-        self.money = 320
+        self.equipped_skills = set(profile.equipped_skills if equipped_skills is None else equipped_skills)
+        self.money = 320 + (100 if "prepared_defense" in self.equipped_skills else 0)
         self.core_hp = 100
         self.towers = []
         self.enemies = []
@@ -693,6 +983,7 @@ class Game:
         self.spawn_batch_remaining = 0
         self.spawn_group_index = 0
         self.spawn_kind = None
+        self.boss_spawned = False
         self.wave_active = False
         self.wave_wait = False
         self.selected_kind = 0
@@ -702,17 +993,19 @@ class Game:
         self.special_cooldown = 0
         self.special_flash = 0
         self.paused = False
-        self.tree_open = False
-        self.unlocked = [True, False, False]
-        self.tree_costs = [220, 360, 520]
-        self.bonus_damage = 1.0
-        self.bonus_income = 1.0
-        self.fast_fire = 1.0
+        self.skills_open = False
+        self.bonus_damage = 1.1 if "sharpshooter" in self.equipped_skills else 1.0
+        self.bonus_income = 1.15 if "harvest_bounty" in self.equipped_skills else 1.0
+        self.fast_fire = .92 if "rapid_fire" in self.equipped_skills else 1.0
+        self.barn_damage_multiplier = .9 if "reinforced_barn" in self.equipped_skills else 1.0
+        self.special_cooldown_multiplier = .8 if "lunar_focus" in self.equipped_skills else 1.0
+        self.special_damage_multiplier = 1.2 if "lunar_focus" in self.equipped_skills else 1.0
         self.completed = False
         self.lost = False
         self.total_kills = 0
         self.total_upgrades = 0
-        self.skills_purchased = 0
+        self.brains_earned = 0
+        self.brain_save_error = None
         self.elapsed_seconds = 0
         self.run_started = False
         self.score_details = None
@@ -731,8 +1024,11 @@ class Game:
             self.spawn_timer = .2
             self.spawn_batch_remaining = 0
             self.spawn_group_index = 0
+            self.boss_spawned = False
             self.wave_wait = False
-            self.notify(f"FASE {self.wave+1}: {WAVES[self.wave]['name']}", 3)
+            boss_kind = boss_for_wave(self.wave)
+            boss_notice = f" — CHEFÃO: {BOSS_NAMES[boss_kind]}" if boss_kind else ""
+            self.notify(f"FASE {self.wave+1}: {WAVES[self.wave]['name']}{boss_notice}", 4)
 
     def use_special(self):
         if self.special_cooldown > 0:
@@ -741,11 +1037,11 @@ class Game:
         count = 0
         for e in self.enemies:
             if not e.dead and not e.reached:
-                e.take_damage(42 + self.wave*8)
+                e.take_damage((42 + self.wave*8) * self.special_damage_multiplier)
                 e.hit_flash = .15
                 if e.dead:
                     count += 1
-        self.special_cooldown = 12
+        self.special_cooldown = 12 * self.special_cooldown_multiplier
         self.special_flash = .4
         self.notify(f"Pulso lunar! {count} monstro(s) eliminado(s).", 2)
 
@@ -779,34 +1075,13 @@ class Game:
         self.total_upgrades += 1
         self.notify(f"Torre melhorada para nível {t.level}.")
 
-    def buy_skill(self, index):
-        if self.unlocked[index]:
-            self.notify("Esse caminho já está desbloqueado.")
-            return
-        cost = self.tree_costs[index]
-        if self.money < cost:
-            self.notify(f"Árvore de habilidades: precisa de {fmt_money(cost)} abóboras.")
-            return
-        self.money -= cost
-        self.unlocked[index] = True
-        self.skills_purchased += 1
-        if index == 0:
-            self.bonus_damage = 1.35
-        elif index == 1:
-            self.bonus_income = 1.3
-        else:
-            self.fast_fire = .78
-            for t in self.towers:
-                t.rate *= .78
-        self.notify(["Amuleto sombrio: dano +35%.", "Colheita farta: recompensa +30%.", "Ritmo de batalha: torres atacam mais rápido."][index], 4)
-
     def calculate_score(self):
         health_points = round(5000 * max(0, min(self.core_hp, 100)) / 100)
         time_limit = 4 * 60 * self.difficulty_spec["wave_count"]
         upgrade_target = 2 * self.difficulty_spec["wave_count"]
         time_points = round(2000 * max(0, 1 - self.elapsed_seconds / time_limit))
         upgrade_points = round(1000 * min(self.total_upgrades / upgrade_target, 1))
-        talent_points = round(500 * min(self.skills_purchased / 2, 1))
+        talent_points = round(500 * min(len(self.equipped_skills) / 3, 1))
         savings_points = round(1500 * min(self.money / 1000, 1))
         base_score = health_points + time_points + upgrade_points + talent_points + savings_points
         score = round(base_score * self.difficulty_spec["score_multiplier"])
@@ -830,7 +1105,7 @@ class Game:
             "time": round(self.elapsed_seconds),
             "core_hp": self.core_hp,
             "upgrades": self.total_upgrades,
-            "talents": self.skills_purchased,
+            "talents": len(self.equipped_skills),
             "money": self.money,
         }
         self.ranking_save_error = leaderboard.add_result(result)
@@ -839,15 +1114,16 @@ class Game:
         self.message_time = max(0, self.message_time-dt)
         self.special_cooldown = max(0, self.special_cooldown-dt)
         self.special_flash = max(0, self.special_flash-dt)
-        if self.paused or self.tree_open or self.completed or self.lost:
+        if self.paused or self.skills_open or self.completed or self.lost:
             return
         if self.run_started:
             self.elapsed_seconds += dt
         if self.wave_active:
             self.spawn_timer -= dt
             spec = WAVES[self.wave]
-            if self.spawned < spec["count"] and self.spawn_timer <= 0:
-                if self.spawn_batch_remaining == 0:
+            boss_kind = boss_for_wave(self.wave)
+            if self.spawn_timer <= 0:
+                if self.spawned < spec["count"] and self.spawn_batch_remaining == 0:
                     remaining = spec["count"] - self.spawned
                     batch_size = min(3, remaining)
                     pool = ENEMY_POOLS[min(self.wave, len(ENEMY_POOLS) - 1)]
@@ -858,23 +1134,42 @@ class Game:
                     self.spawn_kind = eligible[self.spawn_group_index % len(eligible)]
                     self.spawn_group_index += 1
                     self.spawn_batch_remaining = batch_size
-                self.enemies.append(Monster(self.wave, self.difficulty, self.spawn_kind))
-                self.spawned += 1
-                self.spawn_batch_remaining -= 1
-                self.spawn_timer = .08 if self.spawn_batch_remaining else max(.35, .86 - self.wave*.035)
+                if self.spawned < spec["count"]:
+                    self.enemies.append(Monster(self.wave, self.difficulty, self.spawn_kind))
+                    self.spawned += 1
+                    self.spawn_batch_remaining -= 1
+                    self.spawn_timer = .08 if self.spawn_batch_remaining else max(.35, .86 - self.wave*.035)
+                elif boss_kind and not self.boss_spawned:
+                    self.enemies.append(Monster(self.wave, self.difficulty, boss_kind))
+                    self.boss_spawned = True
+                    self.spawn_timer = 0
         for m in self.minions:
             m.update(dt, self.enemies)
         self.minions = [m for m in self.minions if not m.dead]
         for e in self.enemies:
+            e.vigor_multiplier = 1
+        pop_kings = [e for e in self.enemies if not e.dead and e.kind == "pop_king"]
+        for boss in pop_kings:
+            for enemy in self.enemies:
+                if enemy is not boss and not enemy.dead and dist((boss.x, boss.y), (enemy.x, enemy.y)) <= 125:
+                    enemy.vigor_multiplier = 1.25
+        summoned_enemies = []
+        for e in self.enemies:
             if not e.dead and not e.reached:
-                e.slow_factor = .3 if not e.ignores_summons and any(
+                near_summon = not e.ignores_summons and any(
                     dist((m.x, m.y), (e.x, e.y)) <= m.radius + e.radius + 3
                     for m in self.minions
-                ) else 1
-                e.update(dt)
+                )
+                e.slow_factor = .3 if near_summon else 1
+                if "frost_runes" in self.equipped_skills:
+                    e.slow_factor = min(e.slow_factor, .85)
+                summoned_enemies.extend(e.update(dt, self.minions))
             if e.reached and not e.dead:
                 e.dead = True
-                self.core_hp -= int((10 + self.wave*2) * self.difficulty_spec["core_damage"])
+                self.core_hp -= int(
+                    (10 + self.wave*2) * self.difficulty_spec["core_damage"]
+                    * self.barn_damage_multiplier
+                )
                 self.notify("Um monstro invadiu o celeiro! Integridade reduzida.", 2)
                 if self.core_hp <= 0:
                     self.lost = True
@@ -886,20 +1181,38 @@ class Game:
         self.bullets = [b for b in self.bullets if not b.dead]
         for e in self.enemies:
             if e.dead and not getattr(e, "rewarded", False):
+                summoned_enemies.extend(e.on_death())
                 if not e.reached:
                     self.money += int(e.reward*self.bonus_income)
                     self.total_kills += 1
                 e.rewarded = True
-                for _ in range(5):
+                particle_count = 16 if e.kind == "skeleton_bomber" else 5
+                for _ in range(particle_count):
                     self.particles.append([e.x,e.y,random.uniform(-70,70),random.uniform(-70,70),.35,e.kind])
+        self.enemies.extend(summoned_enemies)
         self.enemies = [e for e in self.enemies if not e.dead]
         if (self.wave_active and not self.lost
-                and self.spawned >= WAVES[self.wave]["count"] and not self.enemies):
+                and self.spawned >= WAVES[self.wave]["count"]
+                and (boss_for_wave(self.wave) is None or self.boss_spawned)
+                and not self.enemies):
             self.wave_active = False
             self.wave += 1
             bonus = 80 + self.wave*35
             self.money += bonus
-            self.notify(f"Fase concluída! Bônus: {fmt_money(bonus)} abóboras. Pressione ESPAÇO.", 5)
+            brains, brain_save_error = profile.award_brains(self.core_hp)
+            if brain_save_error:
+                self.brain_save_error = brain_save_error
+            self.brains_earned += brains
+            if self.brain_save_error:
+                brain_text = " Erro ao salvar cérebros; consulte o menu."
+            elif brains:
+                brain_text = f" +{brains} cérebro(s)."
+            else:
+                brain_text = " Sem cérebros: integridade de 25% ou menos."
+            self.notify(
+                f"Onda concluída! +{fmt_money(bonus)} abóboras.{brain_text} ESPAÇO: próxima onda.",
+                5,
+            )
             if self.wave >= self.difficulty_spec["wave_count"]:
                 self.completed = True
                 self.save_completed_score()
@@ -943,26 +1256,25 @@ class Game:
             color = KIND_COLORS.get(p[5], MINT)
             pygame.draw.circle(screen, color, (int(p[0]),int(p[1])), max(1,int(4*p[4]/.35)))
 
-    def draw_tree(self):
+    def draw_equipped_skills(self):
         overlay = pygame.Surface((WIDTH,HEIGHT), pygame.SRCALPHA)
         overlay.fill((8,2,16,220))
         screen.blit(overlay,(0,0))
         pygame.draw.rect(screen, PANEL, (245,145,610,430), border_radius=16)
         pygame.draw.rect(screen, BORDER, (245,145,610,430), 2, border_radius=16)
-        draw_text("ÁRVORE DE HABILIDADES", 295, 168, ORANGE, BIG)
-        draw_text("Escolha caminhos diferentes para adaptar sua defesa.", 295, 207, MUTED, SMALL)
-        nodes = [
-            (280,265,"1  AMULETO SOMBRIO","Dano das torres +35%",self.unlocked[0],self.tree_costs[0]),
-            (280,350,"2  COLHEITA FARTA","Recompensas +30%",self.unlocked[1],self.tree_costs[1]),
-            (280,435,"3  RITMO DE BATALHA","Torres atacam mais rápido",self.unlocked[2],self.tree_costs[2]),
-        ]
-        for x,y,title,desc,owned,cost in nodes:
-            pygame.draw.rect(screen,(44,56,40) if owned else (36,24,54),(x,y,535,65),border_radius=9)
-            pygame.draw.rect(screen,MINT if owned else BORDER,(x,y,535,65),2,border_radius=9)
-            draw_text(title,x+16,y+9,MINT if owned else WHITE,FONT)
-            draw_text(desc,x+16,y+37,MUTED,SMALL)
-            draw_text("DESBLOQUEADO" if owned else f"{fmt_money(cost)} abóboras",x+350,y+24,MINT if owned else ORANGE,SMALL)
-        draw_text("Clique em um caminho para desbloquear. ESC para voltar.", 295, 530, MUTED, SMALL)
+        draw_text("HABILIDADES EQUIPADAS", 295, 168, ORANGE, BIG)
+        draw_text("Este equipamento foi escolhido no menu com cérebros.", 295, 207, MUTED, SMALL)
+        equipped = [skill for skill in SKILLS if skill["id"] in self.equipped_skills]
+        if not equipped:
+            draw_text("Nenhuma habilidade equipada. Abra a loja no menu com B.", 295, 265, WHITE, FONT)
+        for index, skill in enumerate(equipped):
+            y = 265 + index * 65
+            pygame.draw.rect(screen, (44, 56, 40), (280, y, 535, 55), border_radius=9)
+            pygame.draw.rect(screen, MINT, (280, y, 535, 55), 2, border_radius=9)
+            draw_text(skill["name"], 296, y + 7, MINT, FONT)
+            draw_text(skill["description"], 296, y + 31, WHITE, SMALL)
+        draw_text(f"Cérebros disponíveis: {profile.brains}  |  Equipadas: {len(equipped)}/3", 295, 485, ORANGE, SMALL)
+        draw_text("ESC ou T para voltar. Compre/equipe habilidades no menu (B).", 295, 530, MUTED, SMALL)
 
     def draw_ui(self):
         pygame.draw.rect(screen, PANEL, (0,0,WIDTH,68))
@@ -971,6 +1283,7 @@ class Game:
         draw_text("HARVEST DEFENSE", 58, 18, ORANGE, BIG)
         draw_pumpkin(screen, 346, 27, 8)
         draw_text(f"ABÓBORAS  {fmt_money(self.money)}", 362, 16, WHITE, FONT)
+        draw_text(f"CÉREBROS  {profile.brains}", 362, 41, PURPLE, SMALL)
         draw_text(f"CELEIRO  {self.core_hp}%", 545, 16, MINT if self.core_hp>35 else RED, FONT)
         wave_count = self.difficulty_spec["wave_count"]
         draw_text(f"FASE  {min(self.wave+1,wave_count)}/{wave_count}", 705, 16, WHITE, FONT)
@@ -980,7 +1293,7 @@ class Game:
         pygame.draw.line(screen, BORDER, (0,565),(WIDTH,565),2)
         draw_text("TORRES | 1-6 selecionam | U: melhoria", 24, 577, MUTED, SMALL)
         pulse_status = "PRONTO" if self.special_cooldown <= 0 else f"{int(self.special_cooldown)}s"
-        draw_text(f"ESPAÇO: onda | F: pulso ({pulse_status}) | T: árvore", 365, 577, WHITE, SMALL)
+        draw_text(f"ESPAÇO: onda | F: pulso ({pulse_status}) | T: habilidades", 365, 577, WHITE, SMALL)
         if self.selected_tower:
             t = self.selected_tower
             cost = int(t.cost * (0.8 + .65*t.level))
@@ -1015,15 +1328,24 @@ class Game:
                 screen.blit(score_text, (WIDTH//2-score_text.get_width()//2, 282))
                 score_lines = [
                     f"Integridade {details['health']} / 5.000  |  Tempo {details['time']} / 2.000  |  Melhorias {details['upgrades']} / 1.000",
-                    f"Talentos {details['talents']} / 500  |  Economia {details['savings']} / 1.500  |  Dificuldade {self.difficulty_spec['name']}",
+                    f"Habilidades {details['talents']} / 500  |  Economia {details['savings']} / 1.500  |  Dificuldade {self.difficulty_spec['name']}",
                     f"Tempo de partida: {format_duration(self.elapsed_seconds)}  |  Multiplicador: {details['multiplier']:.2f}x",
                 ]
                 for index, line in enumerate(score_lines):
                     text = SMALL.render(line, True, WHITE)
                     screen.blit(text, (WIDTH//2-text.get_width()//2, 330 + index*26))
+                brain_summary = SMALL.render(
+                    f"Cérebros ganhos nesta campanha: {self.brains_earned}  |  Saldo: {profile.brains}",
+                    True,
+                    PURPLE,
+                )
+                screen.blit(brain_summary, (WIDTH//2-brain_summary.get_width()//2, 408))
                 if self.ranking_save_error:
                     warning = SMALL.render("Não foi possível salvar o ranking; veja o terminal.", True, RED)
-                    screen.blit(warning, (WIDTH//2-warning.get_width()//2, 420))
+                    screen.blit(warning, (WIDTH//2-warning.get_width()//2, 432))
+                elif self.brain_save_error:
+                    warning = SMALL.render("Não foi possível salvar os cérebros; veja o terminal.", True, RED)
+                    screen.blit(warning, (WIDTH//2-warning.get_width()//2, 432))
                 prompt = FONT.render("ENTER: jogar novamente  |  R: ranking  |  ESC: menu", True, WHITE)
             else:
                 prompt = FONT.render("ENTER para jogar novamente  |  ESC para o menu", True, WHITE)
@@ -1033,8 +1355,8 @@ class Game:
         screen.fill(BG)
         self.draw_map()
         self.draw_ui()
-        if self.tree_open:
-            self.draw_tree()
+        if self.skills_open:
+            self.draw_equipped_skills()
 
 def toggle_fullscreen():
     try:
@@ -1052,13 +1374,15 @@ class MenuScreen:
     ITEMS = [("JOGAR", "play"), ("CONFIGURAÇÕES", "settings"), ("COMO JOGAR", "howto"), ("SAIR", "quit")]
     RECTS = [pygame.Rect(51, 325, 247, 45), pygame.Rect(51, 379, 247, 44),
              pygame.Rect(51, 431, 247, 44), pygame.Rect(51, 485, 247, 41)]
+    SKILL_RECTS = [pygame.Rect(218, 156 + index * 58, 664, 50) for index in range(len(SKILLS))]
     FADE_IN = 0.5
     GREEN = (120, 255, 130)
 
     def __init__(self):
         self.time = 0.0
         self.sel = 0
-        self.panel = None   # None | "settings" | "howto"
+        self.panel = None   # None | "settings" | "howto" | "ranking" | "skills"
+        self.skill_message = "Clique em uma habilidade para comprar, equipar ou remover."
         self.image = None
         path = os.path.join(BASE_DIR, "assets", "menu_principal.png")
         try:
@@ -1086,11 +1410,27 @@ class MenuScreen:
     def handle_event(self, event):
         if self.panel:
             back = False
-            if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE, pygame.K_BACKSPACE):
-                back = True
+            if event.type == pygame.KEYDOWN:
+                if self.panel == "skills" and event.key in (
+                    pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6
+                ):
+                    index = event.key - pygame.K_1
+                    self.skill_message = profile.toggle_skill(SKILLS[index])
+                elif event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE, pygame.K_BACKSPACE):
+                    back = True
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.panel == "settings" and self.toggle_rect().collidepoint(event.pos):
                     toggle_fullscreen()
+                elif self.panel == "skills" and self.back_rect().collidepoint(event.pos):
+                    back = True
+                elif self.panel == "skills":
+                    for index, rect in enumerate(self.SKILL_RECTS):
+                        if rect.collidepoint(event.pos):
+                            self.skill_message = profile.toggle_skill(SKILLS[index])
+                            break
+                    else:
+                        if not self.panel_rect().collidepoint(event.pos):
+                            back = True
                 elif self.back_rect().collidepoint(event.pos) or not self.panel_rect().collidepoint(event.pos):
                     back = True
             if back:
@@ -1108,6 +1448,9 @@ class MenuScreen:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r:
                 self.panel = "ranking"
+            elif event.key == pygame.K_b:
+                self.panel = "skills"
+                self.skill_message = "Clique ou pressione 1-6 para comprar/equipar habilidades."
             elif event.key in (pygame.K_UP, pygame.K_w):
                 self.sel = (self.sel - 1) % len(self.ITEMS)
             elif event.key in (pygame.K_DOWN, pygame.K_s):
@@ -1120,7 +1463,7 @@ class MenuScreen:
 
     # --- painéis ---
     def panel_rect(self):
-        return pygame.Rect(190, 60, 720, 600) if self.panel in ("howto", "ranking") else pygame.Rect(320, 200, 460, 330)
+        return pygame.Rect(190, 60, 720, 600) if self.panel in ("howto", "ranking", "skills") else pygame.Rect(320, 200, 460, 330)
 
     def back_rect(self):
         r = self.panel_rect()
@@ -1158,7 +1501,7 @@ class MenuScreen:
             draw_text(f"{spec['name']} — {spec['desc']} (custo {spec['cost']})", x+24, ty, WHITE, SMALL)
         draw_text("Zumbis: lentos/tanque | Esqueletos: básicos em bandos | Fantasmas: ignoram Lápides.", x, y+236, MUTED, SMALL)
         draw_text("Morcegos/aranhas/traças: bandos rápidos | Vampiros regeneram | Múmias/Frankenstein: blindados.", x, y+252, MUTED, SMALL)
-        draw_text("CONTROLES", x, y+280, MINT, FONT)
+        draw_text("CONTROLES", x, y+270, MINT, FONT)
         controls = [
             ("Clique no painel / 1-6", "escolher a torre"),
             ("Clique no mapa", "posicionar (fora da estrada)"),
@@ -1166,15 +1509,45 @@ class MenuScreen:
             ("U", "melhorar a torre selecionada"),
             ("ESPAÇO", "iniciar a próxima onda"),
             ("F", "pulso lunar (recarrega)"),
-            ("T  e  1 / 2 / 3", "árvore de habilidades"),
+            ("T", "ver habilidades equipadas"),
             ("ESC", "voltar ao menu"),
         ]
         for i, (k, d) in enumerate(controls):
-            cy = y + 310 + i*18
+            cy = y + 297 + i*16
             draw_text(k, x, cy, ORANGE, SMALL)
             draw_text(d, x+250, cy, WHITE, SMALL)
-        draw_text("Moedas: abóboras. Ganhe ao derrotar monstros e concluir ondas.", x, y+467, MUTED, SMALL)
-        draw_text("R no menu: consultar o ranking local de cada dificuldade.", x, y+487, MUTED, SMALL)
+        draw_text("Abóboras: torres e melhorias. Cérebros: habilidades permanentes no menu (B).", x, y+442, MUTED, SMALL)
+        draw_text("Recompensa por onda: 1-3 cérebros conforme a integridade do celeiro.", x, y+462, MUTED, SMALL)
+
+    def draw_skills(self):
+        self.draw_panel_frame("LOJA DE HABILIDADES")
+        draw_text(f"CÉREBROS: {profile.brains}  |  EQUIPADAS: {len(profile.equipped_skills)}/3", 218, 112, PURPLE, FONT)
+        draw_text("Desbloqueios permanentes. As habilidades equipadas valem na próxima campanha.", 218, 136, MUTED, SMALL)
+        for index, (skill, rect) in enumerate(zip(SKILLS, self.SKILL_RECTS), 1):
+            unlocked = skill["id"] in profile.unlocked_skills
+            equipped = skill["id"] in profile.equipped_skills
+            color = MINT if equipped else WHITE if unlocked else MUTED
+            pygame.draw.rect(screen, (44, 56, 40) if equipped else (36, 24, 54), rect, border_radius=8)
+            pygame.draw.rect(screen, color if unlocked else BORDER, rect, 2, border_radius=8)
+            draw_text(f"{index}. {skill['name']}", rect.x + 12, rect.y + 5, color, FONT)
+            draw_text(skill["description"], rect.x + 12, rect.y + 27, MUTED, SMALL)
+            if equipped:
+                status = "EQUIPADA"
+            elif unlocked:
+                status = "EQUIPAR"
+            else:
+                status = f"{skill['cost']} cérebros"
+            status_surface = SMALL.render(status, True, color if unlocked else ORANGE)
+            screen.blit(status_surface, (rect.right - status_surface.get_width() - 12, rect.y + 17))
+        message_color = RED if (
+            profile.last_error
+            or "insuficientes" in self.skill_message
+            or "Limite" in self.skill_message
+        ) else MINT
+        draw_text(self.skill_message, 218, 516, message_color, SMALL)
+        if profile.last_error:
+            draw_text(profile.last_error[:92], 218, 538, RED, SMALL)
+        draw_text("Clique ou use 1-6. Limite de 3 habilidades equipadas.", 218, 565, MUTED, SMALL)
 
     def draw_ranking(self):
         self.draw_panel_frame("RANKING LOCAL")
@@ -1243,10 +1616,12 @@ class MenuScreen:
             self.draw_howto()
         elif self.panel == "ranking":
             self.draw_ranking()
+        elif self.panel == "skills":
+            self.draw_skills()
         elif self.panel == "settings":
             self.draw_settings()
         if self.panel is None:
-            draw_text("R: ranking local", 58, 548, WHITE, SMALL)
+            draw_text(f"B: habilidades ({profile.brains} cérebros)  |  R: ranking local", 58, 548, WHITE, SMALL)
         if self.time < self.FADE_IN:
             fade = pygame.Surface((WIDTH, HEIGHT))
             fade.set_alpha(int(255 * (1 - self.time / self.FADE_IN)))
@@ -1254,6 +1629,7 @@ class MenuScreen:
 
 
 leaderboard = Leaderboard()
+profile = PlayerProfile()
 difficulty_screen = DifficultyScreen()
 game = Game()
 title = TitleScreen()
@@ -1300,8 +1676,8 @@ while running:
             continue
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                if game.tree_open:
-                    game.tree_open = False
+                if game.skills_open:
+                    game.skills_open = False
                 else:
                     menu.enter()
                     state = "menu"
@@ -1312,11 +1688,9 @@ while running:
                     menu.enter()
                     menu.panel = "ranking"
                     state = "menu"
-            elif game.tree_open:
-                if event.key in (pygame.K_1,pygame.K_2,pygame.K_3):
-                    game.buy_skill(event.key-pygame.K_1)
-                elif event.key == pygame.K_t:
-                    game.tree_open=False
+            elif game.skills_open:
+                if event.key == pygame.K_t:
+                    game.skills_open = False
             else:
                 if event.key == pygame.K_SPACE:
                     game.start_wave()
@@ -1329,15 +1703,12 @@ while running:
                 elif event.key == pygame.K_f:
                     game.use_special()
                 elif event.key == pygame.K_t:
-                    game.tree_open=True
+                    game.skills_open = True
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
-            if game.tree_open:
-                for i,y in enumerate([265,350,435]):
-                    if pygame.Rect(280,y,535,65).collidepoint(pos):
-                        game.buy_skill(i)
+            if game.skills_open:
                 if not pygame.Rect(245,145,610,430).collidepoint(pos):
-                    game.tree_open=False
+                    game.skills_open = False
             elif MAP_RECT.collidepoint(pos):
                 found = next((t for t in reversed(game.towers) if dist(pos,(t.x,t.y)) < 22),None)
                 if found:

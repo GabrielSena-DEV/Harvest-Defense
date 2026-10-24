@@ -30,7 +30,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 
 ## Telas
 - **Tela inicial**: aperte qualquer tecla ou clique para ir ao menu (ESC sai).
-- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia), Como jogar e Sair. Pressione **R** para abrir o ranking. ESC volta à tela inicial.
+- **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia), Como jogar e Sair. Pressione **B** para abrir a loja de habilidades ou **R** para o ranking. ESC volta à tela inicial.
 - **Dificuldade**: depois de escolher Jogar, selecione Fácil, Normal ou Difícil com as setas e ENTER, ou clique em uma opção.
 - **Durante o jogo**: ESC volta ao menu. **F11** alterna tela cheia em qualquer tela.
 
@@ -41,9 +41,8 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - **U**: melhorar a torre selecionada.
 - **Espaço**: iniciar a próxima onda.
 - **F**: usar o pulso lunar (habilidade especial com recarga).
-- **T**: abrir a árvore de habilidades.
-- **1 / 2 / 3** na árvore: desbloquear um caminho.
-- **ESC**: fechar a árvore ou voltar ao menu.
+- **T**: consultar as habilidades equipadas durante a partida.
+- **ESC**: fechar o painel de habilidades ou voltar ao menu.
 - **ENTER**: reiniciar após vitória ou derrota.
 - **R** após uma vitória: consultar o ranking.
 
@@ -52,12 +51,14 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - A dificuldade ajusta vida e velocidade dos inimigos, dano ao celeiro e multiplicador de pontuação. A densidade, a resistência e a velocidade dos inimigos aumentam gradualmente nas ondas adicionais.
 - Inimigos com atributos e aparência próprios: **Zumbis** lentos e resistentes; **Esqueletos** básicos que avançam em bandos; **Fantasmas** que ignoram os bloqueios da Lápide; **Morcegos**, **Aranhas** e **Traças** rápidos, frágeis e agrupados; **Vampiros** que regeneram vida; **Múmias** e **Frankenstein** com muita vida e armadura. Novos tipos entram na composição das ondas conforme a campanha avança.
 - Seis torres balanceadas: **Espantalho** (dano equilibrado), **Gárgula** (golpes pesados), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (rajada veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
-- Moeda em abóboras, com bônus por eliminar monstros e por concluir ondas.
-- Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Ritmo de Batalha (velocidade de ataque).
+- **Duas moedas:** abóboras são ganhas e gastas durante a partida para comprar e melhorar torres; cérebros são ganhos ao concluir cada onda e gastos fora da partida na loja de habilidades.
+- **Recompensa de cérebros por onda:** no máximo 1 cérebro por onda concluída, se o celeiro terminar com mais de 25% de integridade. Com 25% ou menos, não há recompensa. Os cérebros são persistentes entre sessões.
+- A loja (**B** no menu) oferece Mira de Precisão (+10% dano), Rajada Rápida (+8% velocidade de ataque), Defesa Preparada (+100 abóboras iniciais), Celeiro Reforçado (-10% dano ao celeiro), Recompensa da Colheita (+15% abóboras por inimigo), Foco Lunar (pulso recarrega 20% mais rápido e causa +20% dano) e Runas Gélidas (inimigos avançam 15% mais devagar). Cada habilidade é desbloqueada permanentemente; equipe até três antes de iniciar uma campanha.
+- Chefões aparecem a cada três ondas: Esqueleto Cbum explode e invoca quatro esqueletos ao morrer; Lorde Vampiro recupera vida perto das tropas aliadas; Rei Fantasma fica intangível após permanecer com pouca vida, e lentidões atrasam a transformação; Rei do Pop fortalece a velocidade dos inimigos próximos e invoca quatro zumbis ao chegar à metade da vida.
 - Pulso lunar especial, recarga, barras de vida, partículas e efeitos de impacto.
 - O celeiro tem integridade; monstros que chegam ao final a reduzem.
-- O score só é calculado e incluído no ranking após vencer todas as ondas da dificuldade escolhida. A integridade do celeiro vale até 5.000 pontos; tempo, melhorias de torres, talentos e abóboras restantes completam a pontuação, que recebe um multiplicador conforme a dificuldade.
-- O ranking mantém as 10 melhores vitórias de cada dificuldade neste computador. Ele é salvo em `~/.harvest-defense/leaderboard.json` e não é enviado a um servidor.
+- O score só é calculado e incluído no ranking após vencer todas as ondas da dificuldade escolhida. A integridade do celeiro vale até 5.000 pontos; tempo, melhorias de torres, habilidades equipadas e abóboras restantes completam a pontuação, que recebe um multiplicador conforme a dificuldade.
+- O ranking mantém as 10 melhores vitórias de cada dificuldade neste computador. Ele é salvo em `~/.harvest-defense/leaderboard.json`; moedas e habilidades ficam em `~/.harvest-defense/profile.json`. Esses dados são locais e não são enviados a um servidor.
 
 ## Arquivos
 - `main.py` — o jogo.
