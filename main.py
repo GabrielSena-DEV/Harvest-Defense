@@ -41,25 +41,28 @@ MAP_RECT = pygame.Rect(24, 80, 1052, 470)
 PATH = [(30, 315), (165, 315), (165, 170), (360, 170), (360, 430),
         (560, 430), (560, 245), (760, 245), (760, 360), (1000, 360)]
 CORE = (1015, 360)   # o celeiro
+# Cada DIFICULDADE usa um mapa (ver DIFFICULTIES[...]["scene"]); o mapa vale para a campanha toda.
+# As coordenadas abaixo estão em pixels da imagem original (source_size) e foram traçadas
+# sobre a estrada desenhada em cada arte. O primeiro ponto é onde os monstros nascem e o
+# último é o ponto de chegada ("core"), onde o celeiro/portão recebe o dano.
 MAP_SCENES = {
-    0: {
+    "fase_1": {   # Fácil — monstros saem do portal (canto superior direito) até o portão da fazenda
         "name": "fase_1",
-        "source_size": (1024, 768),
+        "source_size": (1024, 761),
         "path": [
-            (500, 758), (500, 565), (310, 565), (310, 400),
-            (110, 400), (110, 300), (230, 300), (230, 120), (920, 120),
+            (905, 145), (248, 145), (248, 345), (108, 345), (108, 545),
+            (326, 545), (330, 394), (503, 394), (503, 748),
         ],
-        "core": (920, 120),
+        "core": (503, 748),
     },
-    1: {
+    "fase_2": {   # Médio — monstros entram pela esquerda e seguem a trilha até o celeiro
         "name": "fase_2",
-        "source_size": (1024, 768),
+        "source_size": (1024, 572),
         "path": [
-            (0, 280), (115, 280), (115, 120), (315, 120),
-            (315, 280), (510, 280), (510, 205), (740, 205),
-            (740, 280), (980, 280),
+            (0, 285), (137, 285), (137, 142), (326, 142), (332, 404),
+            (527, 404), (528, 226), (720, 226), (720, 333), (936, 334),
         ],
-        "core": (980, 280),
+        "core": (936, 334),
     },
 }
 _SCENE_BACKGROUND_CACHE = {}
@@ -94,9 +97,9 @@ WAVES = [
     {"count": 43, "hp": 275, "speed": 118, "reward": 105, "name": "Rei Abóbora: batalha final"},
 ]
 DIFFICULTIES = {
-    "facil": {"name": "FÁCIL", "wave_count": 6, "enemy_hp": 0.8, "enemy_speed": 0.9, "core_damage": 0.8, "score_multiplier": 0.8},
-    "normal": {"name": "MÉDIO", "wave_count": 9, "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
-    "dificil": {"name": "DIFÍCIL", "wave_count": 12, "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
+    "facil": {"name": "FÁCIL", "scene": "fase_1", "wave_count": 6, "enemy_hp": 0.8, "enemy_speed": 0.9, "core_damage": 0.8, "score_multiplier": 0.8},
+    "normal": {"name": "MÉDIO", "scene": "fase_2", "wave_count": 9, "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
+    "dificil": {"name": "DIFÍCIL", "scene": None, "wave_count": 12, "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
 }
 HEROES = [
     {"id": "coan", "name": "Coan", "ability": "Lentidão Temporária", "description": "Reduz em 60% a velocidade dos inimigos numa área por 5 s.", "cooldown": 22},
@@ -218,10 +221,14 @@ def point_segment_distance(p, a, b):
     t = max(0, min(1, ((px-ax)*dx + (py-ay)*dy)/(dx*dx+dy*dy)))
     return dist(p, (ax+t*dx, ay+t*dy))
 
-def map_scene_for_wave(wave):
-    return MAP_SCENES.get(wave)
+def map_scene_for_difficulty(difficulty):
+    """Mapa da dificuldade (None = cenário clássico desenhado pelo código)."""
+    scene_name = DIFFICULTIES[difficulty].get("scene")
+    return MAP_SCENES[scene_name] if scene_name else None
 
 def map_play_rect_for_scene(scene):
+    if scene is None:
+        return MAP_RECT
     source_width, source_height = scene["source_size"]
     play_width = round(MAP_RECT.height * source_width / source_height)
     return pygame.Rect(
@@ -231,38 +238,30 @@ def map_play_rect_for_scene(scene):
         MAP_RECT.height,
     )
 
-def map_play_rect_for_wave(wave):
-    scene = map_scene_for_wave(wave)
-    return map_play_rect_for_scene(scene) if scene else MAP_RECT
+def scene_point_to_screen(scene, point):
+    source_width, source_height = scene["source_size"]
+    play_rect = map_play_rect_for_scene(scene)
+    return (
+        play_rect.left + round(point[0] * play_rect.width / source_width),
+        play_rect.top + round(point[1] * play_rect.height / source_height),
+    )
 
-def path_for_wave(wave):
-    scene = map_scene_for_wave(wave)
+_SCENE_PATH_CACHE = {}
+
+def path_for_scene(scene):
     if scene is None:
         return PATH
-    source_width, source_height = scene["source_size"]
-    play_rect = map_play_rect_for_scene(scene)
-    return [
-        (
-            play_rect.left + round(x * play_rect.width / source_width),
-            play_rect.top + round(y * play_rect.height / source_height),
-        )
-        for x, y in scene["path"]
-    ]
-
-def core_for_wave(wave):
-    scene = map_scene_for_wave(wave)
-    if scene is None:
-        return CORE
-    return core_for_scene(scene)
+    if scene["name"] not in _SCENE_PATH_CACHE:
+        _SCENE_PATH_CACHE[scene["name"]] = [scene_point_to_screen(scene, p) for p in scene["path"]]
+    return _SCENE_PATH_CACHE[scene["name"]]
 
 def core_for_scene(scene):
-    source_width, source_height = scene["source_size"]
-    play_rect = map_play_rect_for_scene(scene)
-    x, y = scene["core"]
-    return (
-        play_rect.left + round(x * play_rect.width / source_width),
-        play_rect.top + round(y * play_rect.height / source_height),
-    )
+    if scene is None:
+        return CORE
+    return scene_point_to_screen(scene, scene["core"])
+
+def path_for_difficulty(difficulty):
+    return path_for_scene(map_scene_for_difficulty(difficulty))
 
 def on_path(pos, path=PATH, radius=28):
     return any(point_segment_distance(pos, path[i], path[i+1]) < radius for i in range(len(path)-1))
@@ -288,7 +287,7 @@ class Monster:
             speed_multiplier = boss_spec["speed"]
             armor = boss_spec["armor"]
             reward_multiplier = boss_spec["reward"]
-        self.path = path_for_wave(wave)
+        self.path = path_for_difficulty(difficulty)
         self.x, self.y = self.path[0]
         self.segment = 0
         self.progress = 0.0
@@ -1159,11 +1158,6 @@ def build_map_surface(path=PATH, scene=None):
         surf.blit(background["artwork"], play_rect.topleft)
         pygame.draw.rect(surf, BORDER, play_rect, 2, border_radius=8)
         pygame.draw.rect(surf, BORDER, MAP_RECT, 2, border_radius=12)
-        if scene["name"] == "fase_2":
-            label_rect = pygame.Rect(MAP_RECT.centerx - 90, MAP_RECT.top + 5, 180, 28)
-            pygame.draw.rect(surf, (24, 15, 35), label_rect, border_radius=7)
-            pygame.draw.rect(surf, BORDER, label_rect, 1, border_radius=7)
-            draw_centered_text("FASE 2", label_rect.center, WHITE, SMALL, surf)
         _MAP_CACHE[cache_key] = surf
         return surf
 
@@ -1227,11 +1221,6 @@ def build_map_surface(path=PATH, scene=None):
         placed += 1
     surf.set_clip(None)
     pygame.draw.rect(surf, BORDER, play_rect, 2, border_radius=8 if scene else 12)
-    if scene and scene["name"] == "fase_2":
-        label_rect = pygame.Rect(MAP_RECT.centerx - 90, MAP_RECT.top + 5, 180, 28)
-        pygame.draw.rect(surf, (24, 15, 35), label_rect, border_radius=7)
-        pygame.draw.rect(surf, BORDER, label_rect, 1, border_radius=7)
-        draw_centered_text("FASE 2", label_rect.center, WHITE, SMALL, surf)
     _MAP_CACHE[cache_key] = surf
     return surf
 
@@ -1239,6 +1228,11 @@ class Game:
     def __init__(self, difficulty="normal", hero_id="coan", equipped_skills=None):
         self.difficulty = difficulty
         self.difficulty_spec = DIFFICULTIES[difficulty]
+        # o mapa é definido pela dificuldade e não muda entre as ondas
+        self.scene = map_scene_for_difficulty(difficulty)
+        self.path = path_for_scene(self.scene)
+        self.core = core_for_scene(self.scene)
+        self.play_rect = map_play_rect_for_scene(self.scene)
         if hero_id not in HERO_BY_ID:
             raise ValueError(f"Herói desconhecido: {hero_id}")
         self.hero_id = hero_id
@@ -1338,7 +1332,7 @@ class Game:
             return
 
         enemies = [enemy for enemy in self.enemies if not enemy.dead and not enemy.reached]
-        if self.hero_id in ("coan", "inacio", "jair") and not map_play_rect_for_wave(self.wave).collidepoint(target_pos):
+        if self.hero_id in ("coan", "inacio", "jair") and not self.play_rect.collidepoint(target_pos):
             self.notify("Aponte o cursor para uma área do mapa e pressione G.")
             return
 
@@ -1382,10 +1376,9 @@ class Game:
         self.hero_cooldown = self.hero["cooldown"]
 
     def buy_tower(self, pos):
-        scene = map_scene_for_wave(self.wave)
-        path_radius = 34 if scene else 28
-        if (not map_play_rect_for_wave(self.wave).collidepoint(pos)
-                or on_path(pos, path_for_wave(self.wave), path_radius)):
+        path_radius = 34 if self.scene else 28
+        if (not self.play_rect.collidepoint(pos)
+                or on_path(pos, self.path, path_radius)):
             self.notify("Posicione a torre fora da estrada dos monstros.")
             return
         if not profile.tower_is_unlocked(self.selected_kind):
@@ -1602,7 +1595,7 @@ class Game:
         self.particles = [p for p in self.particles if p[4] > 0]
 
     def draw_barn(self, scene=None):
-        core = core_for_wave(self.wave)
+        core = self.core
         cx, cy = core
         if scene:
             pygame.draw.circle(screen, (32, 18, 38), core, 16)
@@ -1631,15 +1624,14 @@ class Game:
         pygame.draw.rect(screen, MINT if ok else RED, (cx-w//2, cy-48, int(w*max(0, self.core_hp)/100), 6), border_radius=3)
 
     def draw_map(self):
-        scene = map_scene_for_wave(self.wave)
-        _map_surface = build_map_surface(path_for_wave(self.wave), scene)
+        _map_surface = build_map_surface(self.path, self.scene)
         screen.blit(_map_surface, (0, 0))
-        self.draw_barn(scene)
+        self.draw_barn(self.scene)
         if self.special_flash > 0:
             pygame.draw.circle(
                 screen,
                 (255, 240, 170),
-                core_for_wave(self.wave),
+                self.core,
                 int(50+(0.4-self.special_flash)*220),
                 3,
             )

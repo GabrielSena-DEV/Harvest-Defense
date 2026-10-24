@@ -52,8 +52,8 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 
 ## Mecânicas incluídas
 - Campanha com 6 ondas no Fácil, 9 no Médio e 12 no Difícil. As seis primeiras ondas mantêm a mesma sequência nas três dificuldades; as ondas 7 a 9 ampliam a campanha do Médio e também aparecem no Difícil, que acrescenta as ondas 10 a 12.
-- **Cenários das fases 1 e 2:** `assets/backgrounds/fase_1.png` e `fase_2.png` são usados como fundos das respectivas primeiras ondas em qualquer dificuldade. A arte mantém sua proporção original, com laterais suavizadas para preencher a área panorâmica. As rotas dos inimigos, a área de construção de torres e os pontos de chegada seguem os caminhos ilustrados; da fase 3 em diante, permanece o cenário clássico.
-- A dificuldade ajusta vida e velocidade dos inimigos, dano ao celeiro e multiplicador de pontuação. A densidade, a resistência e a velocidade dos inimigos aumentam gradualmente nas ondas adicionais.
+- **Um mapa por dificuldade:** o mapa é escolhido pela dificuldade e vale para a campanha inteira (não muda de onda para onda). **Fácil** usa `assets/backgrounds/fase_1.png` (os monstros saem do portal no canto superior direito e descem pela estrada até o portão da fazenda); **Médio** usa `assets/backgrounds/fase_2.png` (entram pela esquerda e seguem a trilha até o celeiro); **Difícil** usa o cenário clássico desenhado pelo código. As rotas dos inimigos seguem exatamente a estrada ilustrada em cada arte, e as torres não podem ser colocadas sobre ela. A arte mantém sua proporção original, com laterais suavizadas para preencher a área panorâmica.
+- A dificuldade também define o mapa e ajusta vida e velocidade dos inimigos, dano ao celeiro e multiplicador de pontuação. A densidade, a resistência e a velocidade dos inimigos aumentam gradualmente nas ondas adicionais.
 - Inimigos com atributos e aparência próprios: **Zumbis** lentos e resistentes; **Esqueletos** básicos que avançam em bandos; **Fantasmas** que ignoram os bloqueios da Lápide; **Morcegos**, **Aranhas** e **Traças** rápidos, frágeis e agrupados; **Vampiros** que regeneram vida; **Múmias** e **Frankenstein** com muita vida e armadura. Novos tipos entram na composição das ondas conforme a campanha avança.
 - Seis torres balanceadas: **Espantalho** (dano equilibrado), **Gárgula** (golpes pesados), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (rajada veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
 - **Heróis com poderes ativos:** escolha um antes de cada campanha. **Coan** desacelera inimigos numa área; **Cap. Nascimento** aumenta temporariamente o dano das torres; **Devair** acelera os ataques; **Chico Bento** gera abóboras; **Inacio** envenena inimigos numa área; **Jair** causa dano instantâneo em área. Pressione **G** para ativar o poder, respeitando a recarga exibida na interface. Para Coan, Inacio e Jair, a posição do cursor define a área atingida.
@@ -73,6 +73,8 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - `main.py` — o jogo.
 - `assets/tela_inicial.png` — arte da tela inicial (1100×720, sem texto; o texto que pisca é desenhado pelo código).
 - `assets/menu_principal.png` — arte do menu (1100×720). Os botões fazem parte da imagem; a seleção em verde é desenhada pelo código.
+- `assets/backgrounds/fase_1.png` e `fase_2.png` — mapas de Fácil e Médio. Os waypoints de cada rota ficam em `MAP_SCENES` no `main.py`, em pixels da imagem original; se trocar a arte, refaça os pontos de `path`/`core` e o `source_size`.
+- `assets/originais/fase_2_original.png` — cópia da arte antes da remoção do texto e da barra de vida que estavam embutidos na imagem.
 
 ## Observações
 - Se `assets/tela_inicial.png` ou `assets/menu_principal.png` não forem encontradas, o jogo mostra telas de reserva em texto.
