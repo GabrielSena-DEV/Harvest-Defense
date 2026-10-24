@@ -1,6 +1,6 @@
 # HARVEST DEFENSE — jogo de defesa em Pygame
 
-Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco ondas de monstros: fantasmas, gosmas, zumbis e abóboras malditas.
+Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas de monstros: fantasmas, gosmas, zumbis e abóboras malditas.
 
 ## Requisitos
 - Python 3.10 ou superior
@@ -48,13 +48,14 @@ Tower defense de fazenda e Halloween. O objetivo é proteger o celeiro de cinco 
 - **R** após uma vitória: consultar o ranking.
 
 ## Mecânicas incluídas
-- Cinco fases com quantidade, resistência e velocidade dos monstros crescentes.
+- Campanha com 6 ondas no Fácil, 9 no Médio e 12 no Difícil. As seis primeiras ondas mantêm a mesma sequência nas três dificuldades; as ondas 7 a 9 ampliam a campanha do Médio e também aparecem no Difícil, que acrescenta as ondas 10 a 12.
+- A dificuldade ajusta vida e velocidade dos inimigos, dano ao celeiro e multiplicador de pontuação. A densidade, a resistência e a velocidade dos inimigos aumentam gradualmente nas ondas adicionais.
 - Seis torres balanceadas: **Espantalho** (dano equilibrado), **Gárgula** (golpes pesados), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (rajada veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
 - Moeda em abóboras, com bônus por eliminar monstros e por concluir ondas.
 - Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Ritmo de Batalha (velocidade de ataque).
 - Pulso lunar especial, recarga, barras de vida, partículas e efeitos de impacto.
 - O celeiro tem integridade; monstros que chegam ao final a reduzem.
-- O score só é calculado e incluído no ranking após vencer as cinco ondas. A integridade do celeiro vale até 5.000 pontos; tempo, melhorias de torres, talentos e abóboras restantes completam a pontuação, que recebe um multiplicador conforme a dificuldade.
+- O score só é calculado e incluído no ranking após vencer todas as ondas da dificuldade escolhida. A integridade do celeiro vale até 5.000 pontos; tempo, melhorias de torres, talentos e abóboras restantes completam a pontuação, que recebe um multiplicador conforme a dificuldade.
 - O ranking mantém as 10 melhores vitórias de cada dificuldade neste computador. Ele é salvo em `~/.harvest-defense/leaderboard.json` e não é enviado a um servidor.
 
 ## Arquivos

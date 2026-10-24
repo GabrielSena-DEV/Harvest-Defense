@@ -54,12 +54,19 @@ WAVES = [
     {"count": 13, "hp": 54, "speed": 72, "reward": 30, "name": "Gosmas famintas"},
     {"count": 15, "hp": 72, "speed": 80, "reward": 37, "name": "Zumbis do milharal"},
     {"count": 17, "hp": 94, "speed": 88, "reward": 45, "name": "Abóboras malditas"},
-    {"count": 21, "hp": 125, "speed": 98, "reward": 58, "name": "Rei Abóbora"},
+    {"count": 21, "hp": 125, "speed": 98, "reward": 58, "name": "Colheita sombria"},
+    {"count": 24, "hp": 145, "speed": 100, "reward": 64, "name": "Rei Abóbora"},
+    {"count": 27, "hp": 162, "speed": 103, "reward": 70, "name": "Horda do milharal"},
+    {"count": 30, "hp": 181, "speed": 106, "reward": 76, "name": "Praga do pântano"},
+    {"count": 33, "hp": 202, "speed": 109, "reward": 82, "name": "Guardiões da colheita"},
+    {"count": 36, "hp": 224, "speed": 112, "reward": 88, "name": "Marcha amaldiçoada"},
+    {"count": 39, "hp": 248, "speed": 115, "reward": 94, "name": "Tempestade de monstros"},
+    {"count": 43, "hp": 275, "speed": 118, "reward": 105, "name": "Rei Abóbora: batalha final"},
 ]
 DIFFICULTIES = {
-    "facil": {"name": "FÁCIL", "enemy_hp": 0.8, "enemy_speed": 0.9, "core_damage": 0.8, "score_multiplier": 0.8},
-    "normal": {"name": "NORMAL", "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
-    "dificil": {"name": "DIFÍCIL", "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
+    "facil": {"name": "FÁCIL", "wave_count": 6, "enemy_hp": 0.8, "enemy_speed": 0.9, "core_damage": 0.8, "score_multiplier": 0.8},
+    "normal": {"name": "MÉDIO", "wave_count": 9, "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
+    "dificil": {"name": "DIFÍCIL", "wave_count": 12, "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
 }
 # cor das partículas ao derrotar cada tipo de monstro
 KIND_COLORS = {"ghost": (235, 235, 255), "slime": PURPLE, "zombie": MINT, "pumpkin": ORANGE}
@@ -418,9 +425,9 @@ class Leaderboard:
 
 class DifficultyScreen:
     OPTIONS = [
-        ("facil", "FÁCIL", MINT),
-        ("normal", "NORMAL", CYAN),
-        ("dificil", "DIFÍCIL", RED),
+        ("facil", MINT),
+        ("normal", CYAN),
+        ("dificil", RED),
     ]
     RECTS = [pygame.Rect(120 + index * 292, 310, 268, 170) for index in range(3)]
 
@@ -451,17 +458,18 @@ class DifficultyScreen:
         screen.blit(veil, (0, 0))
         title = BIG.render("ESCOLHA A DIFICULDADE", True, ORANGE)
         screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 205))
-        for index, (key, label, color) in enumerate(self.OPTIONS):
+        for index, (key, color) in enumerate(self.OPTIONS):
             rect = self.RECTS[index]
             selected = index == self.selected
             pygame.draw.rect(screen, (44, 56, 40) if selected else PANEL, rect, border_radius=14)
             pygame.draw.rect(screen, color if selected else BORDER, rect, 3 if selected else 2, border_radius=14)
+            label = DIFFICULTIES[key]["name"]
             label_surface = BIG.render(label, True, color)
             screen.blit(label_surface, (rect.centerx - label_surface.get_width() // 2, rect.y + 28))
             lines = {
-                "facil": ["Inimigos: 80% vida, 90% velocidade", "Dano ao celeiro: 80%", "Multiplicador: 0,80x"],
-                "normal": ["Inimigos: força padrão", "Dano ao celeiro: padrão", "Multiplicador: 1,00x"],
-                "dificil": ["Inimigos: 125% vida, 112% velocidade", "Dano ao celeiro: 125%", "Multiplicador: 1,25x"],
+                "facil": ["6 ondas", "Inimigos: mais fracos", "Multiplicador: 0,80x"],
+                "normal": ["9 ondas", "Inimigos: força padrão", "Multiplicador: 1,00x"],
+                "dificil": ["12 ondas", "Inimigos: reforçados", "Multiplicador: 1,25x"],
             }[key]
             for line_index, line in enumerate(lines):
                 text = SMALL.render(line, True, WHITE if line_index == 0 else MUTED)
@@ -626,7 +634,8 @@ class Game:
         self.message_time = seconds
 
     def start_wave(self):
-        if not self.wave_active and self.wave < len(WAVES) and not self.completed and not self.lost:
+        if (not self.wave_active and self.wave < self.difficulty_spec["wave_count"]
+                and not self.completed and not self.lost):
             self.run_started = True
             self.wave_active = True
             self.spawned = 0
@@ -703,8 +712,10 @@ class Game:
 
     def calculate_score(self):
         health_points = round(5000 * max(0, min(self.core_hp, 100)) / 100)
-        time_points = round(2000 * max(0, 1 - self.elapsed_seconds / (20 * 60)))
-        upgrade_points = round(1000 * min(self.total_upgrades / 10, 1))
+        time_limit = 4 * 60 * self.difficulty_spec["wave_count"]
+        upgrade_target = 2 * self.difficulty_spec["wave_count"]
+        time_points = round(2000 * max(0, 1 - self.elapsed_seconds / time_limit))
+        upgrade_points = round(1000 * min(self.total_upgrades / upgrade_target, 1))
         talent_points = round(500 * min(self.skills_purchased / 2, 1))
         savings_points = round(1500 * min(self.money / 1000, 1))
         base_score = health_points + time_points + upgrade_points + talent_points + savings_points
@@ -787,7 +798,7 @@ class Game:
             bonus = 80 + self.wave*35
             self.money += bonus
             self.notify(f"Fase concluída! Bônus: {fmt_money(bonus)} abóboras. Pressione ESPAÇO.", 5)
-            if self.wave >= len(WAVES):
+            if self.wave >= self.difficulty_spec["wave_count"]:
                 self.completed = True
                 self.save_completed_score()
                 self.notify("FAZENDA PROTEGIDA — Você venceu!", 10)
@@ -859,7 +870,8 @@ class Game:
         draw_pumpkin(screen, 346, 27, 8)
         draw_text(f"ABÓBORAS  {fmt_money(self.money)}", 362, 16, WHITE, FONT)
         draw_text(f"CELEIRO  {self.core_hp}%", 545, 16, MINT if self.core_hp>35 else RED, FONT)
-        draw_text(f"FASE  {min(self.wave+1,5)}/5", 705, 16, WHITE, FONT)
+        wave_count = self.difficulty_spec["wave_count"]
+        draw_text(f"FASE  {min(self.wave+1,wave_count)}/{wave_count}", 705, 16, WHITE, FONT)
         draw_text(f"ELIMINADOS  {self.total_kills}", 845, 16, CYAN, FONT)
         # Painel inferior
         pygame.draw.rect(screen, PANEL, (0,565,WIDTH,155))
@@ -1034,14 +1046,15 @@ class MenuScreen:
         self.draw_panel_frame("COMO JOGAR")
         x, y = 218, 134
         draw_text("OBJETIVO", x, y, MINT, FONT)
-        draw_text("Proteja o celeiro de 5 ondas de monstros. Se a integridade", x, y+26, WHITE, SMALL)
+        draw_text("Proteja o celeiro até o fim da campanha. Se a integridade", x, y+26, WHITE, SMALL)
         draw_text("do celeiro chegar a 0%, a colheita é perdida.", x, y+46, WHITE, SMALL)
-        draw_text("TORRES", x, y+84, MINT, FONT)
+        draw_text("Fácil: 6 ondas | Médio: 9 ondas | Difícil: 12 ondas.", x, y+66, ORANGE, SMALL)
+        draw_text("TORRES", x, y+96, MINT, FONT)
         for i, spec in enumerate(TOWER_TYPES):
-            ty = y + 112 + i*20
+            ty = y + 124 + i*20
             pygame.draw.circle(screen, spec["color"], (x+8, ty+8), 6)
             draw_text(f"{spec['name']} — {spec['desc']} (custo {spec['cost']})", x+24, ty, WHITE, SMALL)
-        draw_text("CONTROLES", x, y+260, MINT, FONT)
+        draw_text("CONTROLES", x, y+272, MINT, FONT)
         controls = [
             ("Clique no painel / 1-6", "escolher a torre"),
             ("Clique no mapa", "posicionar (fora da estrada)"),
@@ -1053,11 +1066,11 @@ class MenuScreen:
             ("ESC", "voltar ao menu"),
         ]
         for i, (k, d) in enumerate(controls):
-            cy = y + 290 + i*20
+            cy = y + 302 + i*20
             draw_text(k, x, cy, ORANGE, SMALL)
             draw_text(d, x+250, cy, WHITE, SMALL)
-        draw_text("Moedas: abóboras. Ganhe ao derrotar monstros e concluir ondas.", x, y+455, MUTED, SMALL)
-        draw_text("R no menu: consultar o ranking local de cada dificuldade.", x, y+475, MUTED, SMALL)
+        draw_text("Moedas: abóboras. Ganhe ao derrotar monstros e concluir ondas.", x, y+467, MUTED, SMALL)
+        draw_text("R no menu: consultar o ranking local de cada dificuldade.", x, y+487, MUTED, SMALL)
 
     def draw_ranking(self):
         self.draw_panel_frame("RANKING LOCAL")
