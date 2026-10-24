@@ -32,7 +32,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - **Tela inicial**: aperte qualquer tecla ou clique para ir ao menu (ESC sai).
 - **Menu principal**: use o mouse ou as setas / W / S + ENTER. Opções: Jogar, Configurações (tela cheia e volume da música), Como jogar e Sair. Pressione **B** para abrir a loja de habilidades ou **R** para o ranking. ESC volta à tela inicial.
 - **Dificuldade**: depois de escolher Jogar, selecione Fácil, Normal ou Difícil com as setas e ENTER, ou clique em uma opção.
-- **Durante o jogo**: ESC volta ao menu. **F11** alterna tela cheia em qualquer tela.
+- **Durante o jogo**: **ESC** pausa a partida. No menu de pausa, escolha continuar, abrir configurações ou voltar ao menu principal; sair da campanha pede confirmação. **F11** alterna tela cheia em qualquer tela.
 - **Trilha sonora**: o tema toca na tela inicial, no menu e na seleção de dificuldade. Cada dificuldade tem sua própria música; a trilha de chefão assume enquanto um chefão estiver vivo e depois a música da dificuldade retorna. Ajuste o volume em Configurações arrastando o controle ou usando as setas esquerda/direita; a alteração é aplicada imediatamente.
 
 ## Controles
@@ -43,7 +43,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 - **Espaço**: iniciar a próxima onda.
 - **F**: usar o pulso lunar (habilidade especial com recarga).
 - **T**: consultar as habilidades equipadas durante a partida.
-- **ESC**: fechar o painel de habilidades ou voltar ao menu.
+- **ESC**: fechar o painel de habilidades ou abrir/fechar o menu de pausa.
 - **ENTER**: reiniciar após vitória ou derrota.
 - **R** após uma vitória: consultar o ranking.
 

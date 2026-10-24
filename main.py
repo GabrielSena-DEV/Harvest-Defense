@@ -138,6 +138,10 @@ def fmt_money(n):
 def draw_text(text, x, y, color=WHITE, font=FONT, surface=screen):
     surface.blit(font.render(str(text), True, color), (x, y))
 
+def draw_centered_text(text, center, color=WHITE, font=FONT, surface=screen):
+    rendered = font.render(str(text), True, color)
+    surface.blit(rendered, (center[0] - rendered.get_width()//2, center[1] - rendered.get_height()//2))
+
 def draw_outlined(text, font, color, center, outline=(20, 8, 30), alpha=255):
     base = font.render(text, True, color)
     edge = font.render(text, True, outline)
@@ -994,6 +998,10 @@ class Game:
         self.special_cooldown = 0
         self.special_flash = 0
         self.paused = False
+        self.pause_screen = "main"
+        self.pause_selection = 0
+        self.pause_button_rects = []
+        self.confirm_button_rects = []
         self.skills_open = False
         self.bonus_damage = 1.1 if "sharpshooter" in self.equipped_skills else 1.0
         self.bonus_income = 1.15 if "harvest_bounty" in self.equipped_skills else 1.0
@@ -1113,10 +1121,12 @@ class Game:
         self.ranking_save_error = leaderboard.add_result(result)
 
     def update(self, dt):
+        if self.paused:
+            return
         self.message_time = max(0, self.message_time-dt)
         self.special_cooldown = max(0, self.special_cooldown-dt)
         self.special_flash = max(0, self.special_flash-dt)
-        if self.paused or self.skills_open or self.completed or self.lost:
+        if self.skills_open or self.completed or self.lost:
             return
         if self.run_started:
             self.elapsed_seconds += dt
@@ -1284,6 +1294,48 @@ class Game:
         draw_text(f"Cérebros disponíveis: {profile.brains}  |  Equipadas: {len(equipped)}/3", 295, 485, ORANGE, SMALL)
         draw_text("ESC ou T para voltar. Compre/equipe habilidades no menu (B).", 295, 530, MUTED, SMALL)
 
+    def draw_pause_overlay(self):
+        if self.pause_screen == "settings":
+            menu.draw_settings()
+            return
+
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((8, 3, 16, 205))
+        screen.blit(overlay, (0, 0))
+        panel = pygame.Rect(300, 190, 500, 370)
+        pygame.draw.rect(screen, PANEL, panel, border_radius=16)
+        pygame.draw.rect(screen, BORDER, panel, 2, border_radius=16)
+
+        if self.pause_screen == "confirm":
+            draw_text("VOLTAR AO MENU PRINCIPAL?", panel.x + 34, panel.y + 36, ORANGE, BIG)
+            draw_text("O progresso desta campanha será perdido.", panel.x + 38, panel.y + 96, WHITE, FONT)
+            draw_text("Tem certeza de que deseja sair?", panel.x + 38, panel.y + 126, MUTED, SMALL)
+            buttons = [
+                (pygame.Rect(panel.x + 32, panel.y + 225, 205, 52), "SAIR PARA O MENU"),
+                (pygame.Rect(panel.x + 263, panel.y + 225, 205, 52), "CONTINUAR"),
+            ]
+            self.confirm_button_rects = [rect for rect, _ in buttons]
+            for index, (rect, label) in enumerate(buttons):
+                selected = index == self.pause_selection
+                pygame.draw.rect(screen, (52, 56, 40) if selected else (36, 24, 54), rect, border_radius=9)
+                pygame.draw.rect(screen, MINT if selected else BORDER, rect, 2, border_radius=9)
+                draw_centered_text(label, rect.center, MINT if selected else WHITE, SMALL)
+            draw_centered_text("← / → para escolher | ENTER confirma | ESC cancela", (panel.centerx, panel.y + 300), MUTED, SMALL)
+            return
+
+        draw_centered_text("JOGO PAUSADO", (panel.centerx, panel.y + 38), ORANGE, BIG)
+        labels = ("CONTINUAR", "CONFIGURAÇÕES", "VOLTAR AO MENU PRINCIPAL")
+        self.pause_button_rects = [
+            pygame.Rect(panel.x + 50, panel.y + 105 + index * 70, panel.w - 100, 54)
+            for index in range(len(labels))
+        ]
+        for index, (rect, label) in enumerate(zip(self.pause_button_rects, labels)):
+            selected = index == self.pause_selection
+            pygame.draw.rect(screen, (52, 56, 40) if selected else (36, 24, 54), rect, border_radius=9)
+            pygame.draw.rect(screen, MINT if selected else BORDER, rect, 2, border_radius=9)
+            draw_centered_text(label, rect.center, MINT if selected else WHITE, FONT)
+        draw_centered_text("↑ / ↓ para escolher | ENTER seleciona | ESC continua", (panel.centerx, panel.bottom - 31), MUTED, SMALL)
+
     def draw_ui(self):
         pygame.draw.rect(screen, PANEL, (0,0,WIDTH,68))
         pygame.draw.line(screen, BORDER, (0,68),(WIDTH,68),2)
@@ -1365,6 +1417,8 @@ class Game:
         self.draw_ui()
         if self.skills_open:
             self.draw_equipped_skills()
+        if self.paused:
+            self.draw_pause_overlay()
 
 def toggle_fullscreen():
     try:
@@ -1769,13 +1823,87 @@ while running:
                 game = Game(difficulty)
                 state = "playing"
             continue
+        if state == "playing" and game.paused:
+            if game.pause_screen == "settings":
+                menu.handle_event(event)
+                if menu.panel is None:
+                    game.pause_screen = "main"
+                    game.pause_selection = 0
+            elif game.pause_screen == "confirm":
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        game.pause_screen = "main"
+                        game.pause_selection = 0
+                    elif event.key in (pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d):
+                        game.pause_selection = 1 - game.pause_selection
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                        if game.pause_selection == 0:
+                            game.paused = False
+                            menu.enter()
+                            state = "menu"
+                        else:
+                            game.pause_screen = "main"
+                            game.pause_selection = 0
+                elif event.type == pygame.MOUSEMOTION:
+                    for index, rect in enumerate(game.confirm_button_rects):
+                        if rect.collidepoint(event.pos):
+                            game.pause_selection = index
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    for index, rect in enumerate(game.confirm_button_rects):
+                        if rect.collidepoint(event.pos):
+                            if index == 0:
+                                game.paused = False
+                                menu.enter()
+                                state = "menu"
+                            else:
+                                game.pause_screen = "main"
+                                game.pause_selection = 0
+                            break
+            else:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        game.paused = False
+                    elif event.key in (pygame.K_UP, pygame.K_w):
+                        game.pause_selection = (game.pause_selection - 1) % 3
+                    elif event.key in (pygame.K_DOWN, pygame.K_s):
+                        game.pause_selection = (game.pause_selection + 1) % 3
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                        if game.pause_selection == 0:
+                            game.paused = False
+                        elif game.pause_selection == 1:
+                            game.pause_screen = "settings"
+                            menu.panel = "settings"
+                            menu.volume_dragging = False
+                        else:
+                            game.pause_screen = "confirm"
+                            game.pause_selection = 1
+                elif event.type == pygame.MOUSEMOTION:
+                    for index, rect in enumerate(game.pause_button_rects):
+                        if rect.collidepoint(event.pos):
+                            game.pause_selection = index
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    for index, rect in enumerate(game.pause_button_rects):
+                        if rect.collidepoint(event.pos):
+                            game.pause_selection = index
+                            if index == 0:
+                                game.paused = False
+                            elif index == 1:
+                                game.pause_screen = "settings"
+                                menu.panel = "settings"
+                                menu.volume_dragging = False
+                            else:
+                                game.pause_screen = "confirm"
+                                game.pause_selection = 1
+                            break
+            continue
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 if game.skills_open:
                     game.skills_open = False
                 else:
-                    menu.enter()
-                    state = "menu"
+                    game.paused = True
+                    game.pause_screen = "main"
+                    game.pause_selection = 0
             elif game.completed or game.lost:
                 if event.key == pygame.K_RETURN:
                     game = Game(game.difficulty)
