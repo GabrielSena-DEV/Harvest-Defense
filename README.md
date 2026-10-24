@@ -50,6 +50,7 @@ Tower defense de fazenda e Halloween. Proteja o celeiro em uma campanha de ondas
 ## Mecânicas incluídas
 - Campanha com 6 ondas no Fácil, 9 no Médio e 12 no Difícil. As seis primeiras ondas mantêm a mesma sequência nas três dificuldades; as ondas 7 a 9 ampliam a campanha do Médio e também aparecem no Difícil, que acrescenta as ondas 10 a 12.
 - A dificuldade ajusta vida e velocidade dos inimigos, dano ao celeiro e multiplicador de pontuação. A densidade, a resistência e a velocidade dos inimigos aumentam gradualmente nas ondas adicionais.
+- Inimigos com atributos e aparência próprios: **Zumbis** lentos e resistentes; **Esqueletos** básicos que avançam em bandos; **Fantasmas** que ignoram os bloqueios da Lápide; **Morcegos**, **Aranhas** e **Traças** rápidos, frágeis e agrupados; **Vampiros** que regeneram vida; **Múmias** e **Frankenstein** com muita vida e armadura. Novos tipos entram na composição das ondas conforme a campanha avança.
 - Seis torres balanceadas: **Espantalho** (dano equilibrado), **Gárgula** (golpes pesados), **Lápide** (invoca aliados que enfrentam e atrasam inimigos), **Milho** (rajada veloz), **Corvo** (longo alcance e dano alto) e **Abóbora** (explosão em área).
 - Moeda em abóboras, com bônus por eliminar monstros e por concluir ondas.
 - Árvore de habilidades com três caminhos: Amuleto Sombrio (dano), Colheita Farta (recompensa) e Ritmo de Batalha (velocidade de ataque).

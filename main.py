@@ -50,8 +50,8 @@ TOWER_TYPES = [
     {"name": "Abóbora", "cost": 175, "range": 145, "damage": 22, "rate": 1.2, "color": ORANGE, "desc": "Explosão em área", "area": 48},
 ]
 WAVES = [
-    {"count": 9, "hp": 38, "speed": 62, "reward": 24, "name": "Fantasminhas"},
-    {"count": 13, "hp": 54, "speed": 72, "reward": 30, "name": "Gosmas famintas"},
+    {"count": 9, "hp": 38, "speed": 62, "reward": 24, "name": "Esqueletos e zumbis"},
+    {"count": 13, "hp": 54, "speed": 72, "reward": 30, "name": "Horda de mortos-vivos"},
     {"count": 15, "hp": 72, "speed": 80, "reward": 37, "name": "Zumbis do milharal"},
     {"count": 17, "hp": 94, "speed": 88, "reward": 45, "name": "Abóboras malditas"},
     {"count": 21, "hp": 125, "speed": 98, "reward": 58, "name": "Colheita sombria"},
@@ -68,8 +68,36 @@ DIFFICULTIES = {
     "normal": {"name": "MÉDIO", "wave_count": 9, "enemy_hp": 1.0, "enemy_speed": 1.0, "core_damage": 1.0, "score_multiplier": 1.0},
     "dificil": {"name": "DIFÍCIL", "wave_count": 12, "enemy_hp": 1.25, "enemy_speed": 1.12, "core_damage": 1.25, "score_multiplier": 1.25},
 }
+ENEMY_ARCHETYPES = {
+    "zombie": {"hp": 1.7, "speed": 0.65, "armor": 0, "regen": 0, "pack": False},
+    "skeleton": {"hp": 0.72, "speed": 1.08, "armor": 0, "regen": 0, "pack": False},
+    "ghost": {"hp": 0.9, "speed": 1.18, "armor": 0, "regen": 0, "pack": False, "ignores_summons": True},
+    "bat": {"hp": 0.3, "speed": 1.85, "armor": 0, "regen": 0, "pack": True},
+    "spider": {"hp": 0.42, "speed": 1.65, "armor": 0, "regen": 0, "pack": True},
+    "moth": {"hp": 0.32, "speed": 1.75, "armor": 0, "regen": 0, "pack": True},
+    "vampire": {"hp": 1.05, "speed": 1.12, "armor": 0, "regen": 5, "pack": False},
+    "mummy": {"hp": 1.8, "speed": 1.0, "armor": 0.2, "regen": 0, "pack": False},
+    "frankenstein": {"hp": 2.3, "speed": 1.0, "armor": 0.32, "regen": 0, "pack": False},
+    "slime": {"hp": 1.0, "speed": 0.9, "armor": 0, "regen": 0, "pack": False},
+    "pumpkin": {"hp": 1.15, "speed": 1.0, "armor": 0, "regen": 0, "pack": False},
+}
+ENEMY_POOLS = [
+    ("skeleton", "zombie"),
+    ("skeleton", "zombie"),
+    ("skeleton", "zombie", "ghost", "slime"),
+    ("skeleton", "zombie", "ghost", "bat", "slime"),
+    ("zombie", "ghost", "bat", "spider", "moth", "pumpkin"),
+    ("zombie", "ghost", "bat", "spider", "moth", "vampire", "pumpkin"),
+    ("zombie", "ghost", "bat", "spider", "moth", "vampire", "mummy", "pumpkin"),
+    ("zombie", "ghost", "bat", "spider", "moth", "vampire", "mummy", "frankenstein", "pumpkin"),
+]
 # cor das partículas ao derrotar cada tipo de monstro
-KIND_COLORS = {"ghost": (235, 235, 255), "slime": PURPLE, "zombie": MINT, "pumpkin": ORANGE}
+KIND_COLORS = {
+    "ghost": (235, 235, 255), "slime": PURPLE, "zombie": MINT, "pumpkin": ORANGE,
+    "skeleton": (218, 211, 185), "bat": (112, 78, 142), "spider": (68, 55, 48),
+    "moth": (221, 199, 136), "vampire": (170, 40, 68), "mummy": (191, 169, 119),
+    "frankenstein": (95, 158, 112),
+}
 
 def fmt_money(n):
     return str(int(max(0, n)))
@@ -118,25 +146,35 @@ def on_path(pos):
     return any(point_segment_distance(pos, PATH[i], PATH[i+1]) < 28 for i in range(len(PATH)-1))
 
 class Monster:
-    def __init__(self, wave, difficulty):
+    def __init__(self, wave, difficulty, kind=None):
         spec = WAVES[wave]
         difficulty_spec = DIFFICULTIES[difficulty]
+        self.kind = kind or random.choice(ENEMY_POOLS[min(wave, len(ENEMY_POOLS) - 1)])
+        archetype = ENEMY_ARCHETYPES[self.kind]
         self.x, self.y = PATH[0]
         self.segment = 0
         self.progress = 0.0
-        self.max_hp = spec["hp"] * difficulty_spec["enemy_hp"] * random.uniform(.82, 1.18)
+        self.max_hp = spec["hp"] * archetype["hp"] * difficulty_spec["enemy_hp"] * random.uniform(.92, 1.08)
         self.hp = self.max_hp
-        self.speed = spec["speed"] * difficulty_spec["enemy_speed"] * random.uniform(.88, 1.12)
-        self.reward = spec["reward"]
+        self.speed = spec["speed"] * archetype["speed"] * difficulty_spec["enemy_speed"] * random.uniform(.92, 1.08)
+        self.armor = archetype["armor"]
+        self.regen = archetype["regen"]
+        self.ignores_summons = archetype.get("ignores_summons", False)
+        self.reward = max(1, round(spec["reward"] * archetype["hp"] ** 0.35))
         self.radius = random.choice([10, 11, 12]) + wave // 3
-        self.kind = random.choice(["ghost", "slime", "zombie"]) if wave < 3 else random.choice(["ghost", "zombie", "pumpkin"])
         self.slime_color = random.choice([(150, 78, 210), (255, 150, 40)])
         self.phase = random.uniform(0, 6.28)
         self.dead = False
         self.reached = False
         self.hit_flash = 0
 
+    def take_damage(self, amount):
+        self.hp -= max(1, amount * (1 - self.armor))
+        if self.hp <= 0:
+            self.dead = True
+
     def update(self, dt):
+        self.hp = min(self.max_hp, self.hp + self.regen * dt)
         if self.segment >= len(PATH)-1:
             self.reached = True
             return
@@ -182,6 +220,58 @@ class Monster:
             pygame.draw.circle(surface, (220, 60, 60), (x-r//3, y-4), max(2, r//5))
             pygame.draw.circle(surface, (220, 60, 60), (x+r//3, y-4), max(2, r//5))
             pygame.draw.line(surface, dark, (x-r//3, y+r//3), (x+r//3, y+r//3), 2)
+        elif self.kind == "skeleton":
+            pygame.draw.line(surface, (224, 216, 190), (x, y-2), (x, y+r), 3)
+            pygame.draw.circle(surface, (235, 229, 207), (x, y-r//2), r//2+2)
+            pygame.draw.circle(surface, dark, (x-r//5, y-r//2), 2)
+            pygame.draw.circle(surface, dark, (x+r//5, y-r//2), 2)
+            for offset in (-1, 1):
+                pygame.draw.line(surface, (210, 201, 177), (x, y+2), (x+offset*r, y+r//2), 2)
+                pygame.draw.line(surface, (210, 201, 177), (x, y+r//2), (x+offset*r, y+r), 2)
+            pygame.draw.line(surface, (210, 201, 177), (x-r//2, y+2), (x+r//2, y+2), 2)
+        elif self.kind == "bat":
+            flap = int(math.sin(pygame.time.get_ticks()/65 + self.phase) * 4)
+            pygame.draw.polygon(surface, (91, 62, 125), [(x, y), (x-r-4, y-r+flap), (x-r//2, y+2), (x-r-2, y+r//2)])
+            pygame.draw.polygon(surface, (91, 62, 125), [(x, y), (x+r+4, y-r+flap), (x+r//2, y+2), (x+r+2, y+r//2)])
+            pygame.draw.circle(surface, (55, 39, 72), (x, y), max(3, r//2))
+            pygame.draw.circle(surface, RED, (x-2, y), 1)
+            pygame.draw.circle(surface, RED, (x+2, y), 1)
+        elif self.kind == "spider":
+            for offset in (-1, 1):
+                for leg_y in (-r//2, 0, r//2):
+                    pygame.draw.line(surface, (57, 45, 42), (x, y+leg_y//2), (x+offset*r, y+leg_y), 2)
+            pygame.draw.circle(surface, (56, 44, 40), (x, y), r//2+2)
+            pygame.draw.circle(surface, RED, (x-2, y-1), 1)
+            pygame.draw.circle(surface, RED, (x+2, y-1), 1)
+        elif self.kind == "moth":
+            flutter = int(math.sin(pygame.time.get_ticks()/70 + self.phase) * 3)
+            pygame.draw.ellipse(surface, (215, 192, 137), (x-r-3, y-r//2-flutter, r+4, r+3))
+            pygame.draw.ellipse(surface, (238, 220, 170), (x+1, y-r//2+flutter, r+3, r+3))
+            pygame.draw.ellipse(surface, (92, 67, 46), (x-2, y-r//2, 4, r+5))
+            pygame.draw.line(surface, dark, (x-1, y-r//2), (x-4, y-r), 1)
+            pygame.draw.line(surface, dark, (x+1, y-r//2), (x+4, y-r), 1)
+        elif self.kind == "vampire":
+            pygame.draw.polygon(surface, (84, 25, 49), [(x-r-2, y-r//2), (x-r, y+r), (x, y+r//2), (x+r, y+r), (x+r+2, y-r//2)])
+            pygame.draw.circle(surface, (188, 188, 202), (x, y-r//3), r//2+2)
+            pygame.draw.circle(surface, RED, (x-r//5, y-r//3), 2)
+            pygame.draw.circle(surface, RED, (x+r//5, y-r//3), 2)
+            pygame.draw.line(surface, WHITE, (x-2, y), (x-1, y+3), 1)
+            pygame.draw.line(surface, WHITE, (x+2, y), (x+1, y+3), 1)
+        elif self.kind == "mummy":
+            pygame.draw.ellipse(surface, (181, 161, 113), (x-r, y-r, r*2, r*2))
+            for band_y in (-r//2, 0, r//2):
+                pygame.draw.line(surface, (225, 210, 160), (x-r+2, y+band_y), (x+r-2, y+band_y+2), 3)
+            pygame.draw.circle(surface, (48, 32, 27), (x-r//4, y-2), 2)
+            pygame.draw.circle(surface, (48, 32, 27), (x+r//4, y-2), 2)
+            pygame.draw.arc(surface, (90, 63, 43), (x-r//2, y, r, r//2), 0, math.pi, 2)
+        elif self.kind == "frankenstein":
+            pygame.draw.rect(surface, (50, 71, 59), (x-r, y-r//2, r*2, r+2), border_radius=3)
+            pygame.draw.rect(surface, (105, 164, 113), (x-r-2, y-r//2-4, r*2+4, r), border_radius=5)
+            pygame.draw.rect(surface, (48, 50, 49), (x-r-4, y-r//4, 4, 5))
+            pygame.draw.rect(surface, (48, 50, 49), (x+r, y-r//4, 4, 5))
+            pygame.draw.circle(surface, dark, (x-r//3, y-r//4), 2)
+            pygame.draw.circle(surface, dark, (x+r//3, y-r//4), 2)
+            pygame.draw.line(surface, dark, (x-r//3, y+r//4), (x+r//3, y+r//4), 2)
         else:
             draw_pumpkin(surface, x, y, r, face=True)
             pygame.draw.rect(surface, (118, 168, 96), (x-r-3, y+2, 4, r//2))
@@ -213,7 +303,7 @@ class AlliedMinion:
         if self.hp <= 0 or self.lifetime <= 0:
             self.dead = True
             return
-        candidates = [e for e in enemies if not e.dead and not e.reached]
+        candidates = [e for e in enemies if not e.dead and not e.reached and not e.ignores_summons]
         if not candidates:
             return
         self.target = min(candidates, key=lambda e: dist((self.x, self.y), (e.x, e.y)))
@@ -224,10 +314,8 @@ class AlliedMinion:
             self.x += dx / length * step
             self.y += dy / length * step
         elif self.attack_cooldown <= 0:
-            self.target.hp -= self.damage
+            self.target.take_damage(self.damage)
             self.target.hit_flash = .1
-            if self.target.hp <= 0:
-                self.target.dead = True
             self.hp -= 10
             self.attack_cooldown = self.attack_rate
         if self.hp <= 0 or self.lifetime <= 0:
@@ -345,10 +433,8 @@ class Bullet:
                 if (not enemy.dead and not enemy.reached
                         and (enemy is self.target or
                              (self.area_radius and dist((self.target.x, self.target.y), (enemy.x, enemy.y)) <= self.area_radius))):
-                    enemy.hp -= self.damage
+                    enemy.take_damage(self.damage)
                     enemy.hit_flash = .12
-                    if enemy.hp <= 0:
-                        enemy.dead = True
             self.dead = True
         elif length:
             self.x += dx/length*self.speed*dt
@@ -604,6 +690,9 @@ class Game:
         self.wave = 0
         self.spawned = 0
         self.spawn_timer = 0
+        self.spawn_batch_remaining = 0
+        self.spawn_group_index = 0
+        self.spawn_kind = None
         self.wave_active = False
         self.wave_wait = False
         self.selected_kind = 0
@@ -640,6 +729,8 @@ class Game:
             self.wave_active = True
             self.spawned = 0
             self.spawn_timer = .2
+            self.spawn_batch_remaining = 0
+            self.spawn_group_index = 0
             self.wave_wait = False
             self.notify(f"FASE {self.wave+1}: {WAVES[self.wave]['name']}", 3)
 
@@ -650,10 +741,9 @@ class Game:
         count = 0
         for e in self.enemies:
             if not e.dead and not e.reached:
-                e.hp -= 42 + self.wave*8
+                e.take_damage(42 + self.wave*8)
                 e.hit_flash = .15
-                if e.hp <= 0:
-                    e.dead = True
+                if e.dead:
                     count += 1
         self.special_cooldown = 12
         self.special_flash = .4
@@ -757,15 +847,27 @@ class Game:
             self.spawn_timer -= dt
             spec = WAVES[self.wave]
             if self.spawned < spec["count"] and self.spawn_timer <= 0:
-                self.enemies.append(Monster(self.wave, self.difficulty))
+                if self.spawn_batch_remaining == 0:
+                    remaining = spec["count"] - self.spawned
+                    batch_size = min(3, remaining)
+                    pool = ENEMY_POOLS[min(self.wave, len(ENEMY_POOLS) - 1)]
+                    eligible = [
+                        kind for kind in pool
+                        if not ENEMY_ARCHETYPES[kind]["pack"] or batch_size >= 3
+                    ]
+                    self.spawn_kind = eligible[self.spawn_group_index % len(eligible)]
+                    self.spawn_group_index += 1
+                    self.spawn_batch_remaining = batch_size
+                self.enemies.append(Monster(self.wave, self.difficulty, self.spawn_kind))
                 self.spawned += 1
-                self.spawn_timer = max(.24, .86 - self.wave*.1)
+                self.spawn_batch_remaining -= 1
+                self.spawn_timer = .08 if self.spawn_batch_remaining else max(.35, .86 - self.wave*.035)
         for m in self.minions:
             m.update(dt, self.enemies)
         self.minions = [m for m in self.minions if not m.dead]
         for e in self.enemies:
             if not e.dead and not e.reached:
-                e.slow_factor = .3 if any(
+                e.slow_factor = .3 if not e.ignores_summons and any(
                     dist((m.x, m.y), (e.x, e.y)) <= m.radius + e.radius + 3
                     for m in self.minions
                 ) else 1
@@ -1054,7 +1156,9 @@ class MenuScreen:
             ty = y + 124 + i*20
             pygame.draw.circle(screen, spec["color"], (x+8, ty+8), 6)
             draw_text(f"{spec['name']} — {spec['desc']} (custo {spec['cost']})", x+24, ty, WHITE, SMALL)
-        draw_text("CONTROLES", x, y+272, MINT, FONT)
+        draw_text("Zumbis: lentos/tanque | Esqueletos: básicos em bandos | Fantasmas: ignoram Lápides.", x, y+236, MUTED, SMALL)
+        draw_text("Morcegos/aranhas/traças: bandos rápidos | Vampiros regeneram | Múmias/Frankenstein: blindados.", x, y+252, MUTED, SMALL)
+        draw_text("CONTROLES", x, y+280, MINT, FONT)
         controls = [
             ("Clique no painel / 1-6", "escolher a torre"),
             ("Clique no mapa", "posicionar (fora da estrada)"),
@@ -1066,7 +1170,7 @@ class MenuScreen:
             ("ESC", "voltar ao menu"),
         ]
         for i, (k, d) in enumerate(controls):
-            cy = y + 302 + i*20
+            cy = y + 310 + i*18
             draw_text(k, x, cy, ORANGE, SMALL)
             draw_text(d, x+250, cy, WHITE, SMALL)
         draw_text("Moedas: abóboras. Ganhe ao derrotar monstros e concluir ondas.", x, y+467, MUTED, SMALL)
