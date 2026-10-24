@@ -113,6 +113,8 @@ BOSS_ARCHETYPES = {
     "king_ghost": {"base_kind": "ghost", "hp": 4.0, "speed": 1.05, "armor": 0, "reward": 5.0},
     "pop_king": {"base_kind": "zombie", "hp": 5.0, "speed": 0.82, "armor": 0.18, "reward": 6.0},
 }
+PUMPKIN_REWARD_MULTIPLIER = 0.5
+BOSS_BRAIN_REWARD = 3
 
 def boss_for_wave(wave):
     if (wave + 1) % 3:
@@ -208,7 +210,7 @@ class Monster:
         self.ignores_summons = archetype.get("ignores_summons", False)
         if self.kind == "king_ghost":
             self.ignores_summons = False
-        self.reward = max(1, round(spec["reward"] * reward_multiplier))
+        self.reward = max(1, round(spec["reward"] * reward_multiplier * PUMPKIN_REWARD_MULTIPLIER))
         self.radius = random.choice([10, 11, 12]) + wave // 3 + (8 if self.is_boss else 0)
         self.slime_color = random.choice([(150, 78, 210), (255, 150, 40)])
         self.phase = random.uniform(0, 6.28)
@@ -737,15 +739,13 @@ class PlayerProfile:
         self.last_error = None
         return None
 
-    def award_brains(self, core_hp):
-        reward = 1 if core_hp > 25 else 0
-        if reward:
-            self.brains += reward
-            error = self.save()
-            if error:
-                self.brains -= reward
-                return 0, error
-        return reward, None
+    def award_brains(self, amount):
+        self.brains += amount
+        error = self.save()
+        if error:
+            self.brains -= amount
+            return 0, error
+        return amount, None
 
     def purchase_skill(self, skill):
         skill_id = skill["id"]
@@ -984,6 +984,7 @@ class Game:
         self.spawn_group_index = 0
         self.spawn_kind = None
         self.boss_spawned = False
+        self.wave_brains_earned = 0
         self.wave_active = False
         self.wave_wait = False
         self.selected_kind = 0
@@ -1025,6 +1026,7 @@ class Game:
             self.spawn_batch_remaining = 0
             self.spawn_group_index = 0
             self.boss_spawned = False
+            self.wave_brains_earned = 0
             self.wave_wait = False
             boss_kind = boss_for_wave(self.wave)
             boss_notice = f" — CHEFÃO: {BOSS_NAMES[boss_kind]}" if boss_kind else ""
@@ -1181,7 +1183,17 @@ class Game:
         self.bullets = [b for b in self.bullets if not b.dead]
         for e in self.enemies:
             if e.dead and not getattr(e, "rewarded", False):
-                summoned_enemies.extend(e.on_death())
+                if not e.reached:
+                    summoned_enemies.extend(e.on_death())
+                    if e.is_boss:
+                        brains, brain_save_error = profile.award_brains(BOSS_BRAIN_REWARD)
+                        if brain_save_error:
+                            self.brain_save_error = brain_save_error
+                            self.notify("Erro ao salvar os cérebros do chefão; consulte o menu.", 4)
+                        else:
+                            self.brain_save_error = None
+                            self.brains_earned += brains
+                            self.wave_brains_earned += brains
                 if not e.reached:
                     self.money += int(e.reward*self.bonus_income)
                     self.total_kills += 1
@@ -1197,18 +1209,14 @@ class Game:
                 and not self.enemies):
             self.wave_active = False
             self.wave += 1
-            bonus = 80 + self.wave*35
+            bonus = 40 + self.wave*15
             self.money += bonus
-            brains, brain_save_error = profile.award_brains(self.core_hp)
-            if brain_save_error:
-                self.brain_save_error = brain_save_error
-            self.brains_earned += brains
             if self.brain_save_error:
                 brain_text = " Erro ao salvar cérebros; consulte o menu."
-            elif brains:
-                brain_text = f" +{brains} cérebro(s)."
+            elif self.wave_brains_earned:
+                brain_text = f" +{self.wave_brains_earned} cérebros pelo chefão."
             else:
-                brain_text = " Sem cérebros: integridade de 25% ou menos."
+                brain_text = ""
             self.notify(
                 f"Onda concluída! +{fmt_money(bonus)} abóboras.{brain_text} ESPAÇO: próxima onda.",
                 5,
