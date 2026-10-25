@@ -7,12 +7,6 @@ import shutil
 from datetime import datetime
 import pygame
 
-# HARVEST DEFENSE — jogo de defesa em Pygame (fazenda + Halloween)
-# Controles: clique em uma torre no painel inferior e depois no mapa para posicioná-la.
-# Clique em uma torre já colocada para selecioná-la. Espaço: iniciar/próxima onda.
-# 1-6: selecionar torre. U: melhorar torre selecionada. F: pulso lunar.
-# T: ver habilidades equipadas. ESC: voltar ao menu. F11: tela cheia.
-
 pygame.init()
 pygame.display.set_caption("HARVEST DEFENSE — Proteja a fazenda. Defenda a colheita.")
 WIDTH, HEIGHT = 1100, 720
@@ -30,10 +24,10 @@ BG = (16, 9, 26)
 GRASS_A = (31, 36, 44)
 GRASS_B = (35, 41, 49)
 WHITE = (240, 232, 245)
-MINT = (140, 232, 110)      # "bom / disponível" (verde gosma)
+MINT = (140, 232, 110)     
 CYAN = (96, 208, 255)
 PURPLE = (192, 130, 255)
-ORANGE = (255, 150, 50)     # abóbora
+ORANGE = (255, 150, 50)   
 RED = (255, 84, 84)
 MUTED = (160, 140, 178)
 PANEL = (28, 17, 44)
@@ -44,40 +38,64 @@ DIRT_EDGE = (70, 46, 34)
 MAP_RECT = pygame.Rect(24, 80, 1052, 470)
 PATH = [(30, 315), (165, 315), (165, 170), (360, 170), (360, 430),
         (560, 430), (560, 245), (760, 245), (760, 360), (1000, 360)]
-CORE = (1015, 360)   # o celeiro
-# Cada DIFICULDADE usa um mapa (ver DIFFICULTIES[...]["scene"]); o mapa vale para a campanha toda.
-# As coordenadas abaixo estão em pixels da imagem original (source_size) e foram traçadas
-# sobre a estrada desenhada em cada arte. O primeiro ponto é onde os monstros nascem e o
-# último é o ponto de chegada ("core"), onde o celeiro/portão recebe o dano.
+CORE = (1015, 360)  
+
 MAP_SCENES = {
-    "fase_1": {   # Fácil — monstros saem do portão central inferior e seguem até o portal superior direito
+    "fase_1": {   # Fácil
         "name": "fase_1",
-        "source_size": (1024, 761),
+        "source_size": (8600, 4800),
         "path": [
-            (503, 748), (503, 394), (330, 394), (326, 545), (108, 545),
-            (108, 345), (248, 345), (248, 145), (905, 145),
+            (4250, 4780), (4250, 4100), (4250, 3750), (4250, 3500),
+            (4250, 3250), (4250, 3000), (4250, 2750), (4250, 2500),
+            (4000, 2500), (3700, 2500),
+            (3400, 2500), (3200, 2500),
+            (3100, 2700), (3100, 3000), (3100, 3300), (3000, 3400),
+            (2800, 3400),
+            (2300, 3400), (1900, 3400), (1780, 3300), (1750, 3050),
+            (1750, 2750), (1780, 2500), (1880, 2320), (2070, 2200),
+            (2350, 2178), (2600, 2178), (2600, 1900), (2600, 1550),
+            (2600, 1200), (2660, 1030), (2800, 930), (3200, 917),
+            (4300, 917), (5400, 917), (6660, 917),
         ],
-        "core": (905, 145),
+        "core": (6660, 917),
     },
-    "fase_2": {   # Médio — monstros entram pela esquerda e seguem a trilha até a saída à direita
+    "fase_2": {   # Médio
         "name": "fase_2",
-        "source_size": (1024, 572),
+        "source_size": (8600, 4800),
         "path": [
-            (0, 285), (137, 285), (137, 142), (326, 142), (332, 404),
-            (527, 404), (528, 226), (720, 226), (720, 333), (936, 334),
+            (0, 2392), (800, 2392), (1050, 2392), (1150, 2300),
+            (1151, 2050), (1151, 1650), (1151, 1350), (1240, 1230),
+            (1420, 1192), (1900, 1192), (2350, 1192), (2737, 1192),
+            (2790, 1400), (2795, 1900), (2795, 2400), (2790, 2900),
+            (2788, 3200), (2880, 3350), (3100, 3389), (3600, 3389),
+            (4050, 3389), (4426, 3389), (4434, 3050), (4434, 2650),
+            (4434, 2250), (4434, 2000), (4520, 1900), (4800, 1896),
+            (5300, 1896), (5800, 1896), (6047, 1896), (6047, 2150),
+            (6047, 2500), (6047, 2700), (6140, 2793), (6400, 2794),
+            (7000, 2794), (7600, 2794), (8170, 2794),
         ],
-        "core": (936, 334),
+        "core": (8170, 2794),
     },
-    "fase_3": {   # Difícil — monstros entram pelo portão INÍCIO e seguem até o portão FIM
+    "fase_3": {   # Difícil
         "name": "fase_3",
-        "source_size": (1455, 1081),
+        "source_size": (8600, 4800),
         "path": [
-            (95, 875), (370, 875), (400, 845), (400, 740), (650, 740),
-            (680, 710), (680, 610), (650, 585), (545, 585), (500, 560),
-            (470, 530), (420, 530), (400, 500), (400, 390), (410, 350),
-            (430, 320), (430, 270), (460, 230), (520, 205), (1325, 205),
+            (1900, 4780), (2200, 4700), (2500, 4600), (2750, 4480),
+            (2860, 4340), (3000, 4270), (3400, 4190), (3800, 4160),
+            (4100, 4120), (4280, 4020), (4280, 3800), (4280, 3500),
+            (4280, 3200), (4280, 2900), (4260, 2700), (4150, 2550),
+            (4000, 2470), (3700, 2470), (3400, 2470), (3200, 2470),
+            (3000, 2530), (2800, 2500), (2700, 2500), (2700, 2700),
+            (2700, 3000), (2670, 3250), (2550, 3370), (2350, 3400),
+            (2000, 3400), (1600, 3400), (1200, 3400), (1000, 3300),
+            (1000, 3000), (1000, 2700), (1000, 2400), (1100, 2300),
+            (1350, 2300), (1600, 2200), (1800, 2100), (1800, 1850),
+            (1800, 1600), (1800, 1400), (1850, 1200), (2000, 1050),
+            (2300, 950), (2700, 917), (3200, 910),
+            (4000, 910), (5000, 910), (6000, 910), (7000, 910),
+            (7833, 910), (7800, 770), (7740, 540),
         ],
-        "core": (1325, 205),
+        "core": (7740, 540),
     },
 }
 _SCENE_BACKGROUND_CACHE = {}
@@ -292,12 +310,14 @@ def map_play_rect_for_scene(scene):
     if scene is None:
         return MAP_RECT
     source_width, source_height = scene["source_size"]
-    play_width = round(MAP_RECT.height * source_width / source_height)
+    map_scale = 0.94
+    play_height = round(MAP_RECT.height * map_scale)
+    play_width = round(play_height * source_width / source_height)
     return pygame.Rect(
         MAP_RECT.centerx - play_width // 2,
-        MAP_RECT.top,
+        MAP_RECT.centery - play_height // 2,
         play_width,
-        MAP_RECT.height,
+        play_height,
     )
 
 def scene_point_to_screen(scene, point):
@@ -691,8 +711,6 @@ class Tower:
 
     def draw(self, surface, selected=False):
         x, y = int(self.x), int(self.y)
-        if selected:
-            pygame.draw.circle(surface, self.color, (x, y), int(self.range), 1)
         pygame.draw.circle(surface, (42, 26, 54), (x, y), 20)
         pygame.draw.circle(surface, self.color, (x, y), 20, 3)
         tip = (x+int(math.cos(self.angle)*20), y+int(math.sin(self.angle)*20))
@@ -917,6 +935,15 @@ class Leaderboard:
     def records_for(self, difficulty):
         return self.rankings[difficulty]
 
+    def all_records(self):
+        records = [
+            (entry, difficulty)
+            for difficulty in DIFFICULTIES
+            for entry in self.records_for(difficulty)
+        ]
+        records.sort(key=lambda record: record[0]["score"], reverse=True)
+        return records[:self.LIMIT]
+
     def add_result(self, result):
         difficulty = result["difficulty"]
         updated_rankings = {
@@ -943,6 +970,9 @@ class PlayerProfile:
 
     def __init__(self):
         self.path = local_data_file("profile.json", ("profile.json",))
+        self.users = {}
+        self.active_user = None
+        self.last_user = None
         self.brains = 0
         self.unlocked_skills = set()
         self.equipped_skills = []
@@ -950,6 +980,73 @@ class PlayerProfile:
         self.auto_waves = False
         self.last_error = None
         self.load()
+
+    @staticmethod
+    def valid_initials(initials):
+        return (
+            isinstance(initials, str)
+            and len(initials) == 3
+            and all("A" <= char <= "Z" for char in initials)
+        )
+
+    @staticmethod
+    def default_user_data():
+        return {
+            "brains": 0,
+            "unlocked_skills": [],
+            "equipped_skills": [],
+            "unlocked_towers": [],
+            "auto_waves": False,
+        }
+
+    def apply_user_data(self, data):
+        defaults = self.default_user_data()
+        valid_skill_ids = {skill["id"] for skill in SKILLS}
+        valid_tower_ids = {TOWER_TYPES[unlock["kind"]]["id"] for unlock in TOWER_UNLOCKS}
+        brains = data.get("brains", defaults["brains"])
+        unlocked = data.get("unlocked_skills", defaults["unlocked_skills"])
+        equipped = data.get("equipped_skills", defaults["equipped_skills"])
+        unlocked_towers = data.get("unlocked_towers", defaults["unlocked_towers"])
+        auto_waves = data.get("auto_waves", defaults["auto_waves"])
+        if isinstance(brains, int) and not isinstance(brains, bool) and brains >= 0:
+            self.brains = brains
+        else:
+            self.brains = 0
+            self.last_error = "Saldo de cérebros inválido; iniciado em zero."
+        self.unlocked_skills = (
+            {
+                skill_id for skill_id in unlocked
+                if isinstance(skill_id, str) and skill_id in valid_skill_ids
+            }
+            if isinstance(unlocked, list)
+            else set()
+        )
+        self.unlocked_towers = (
+            {
+                tower_id for tower_id in unlocked_towers
+                if isinstance(tower_id, str) and tower_id in valid_tower_ids
+            }
+            if isinstance(unlocked_towers, list)
+            else set()
+        )
+        self.equipped_skills = []
+        if isinstance(equipped, list):
+            for skill_id in equipped:
+                if (isinstance(skill_id, str) and skill_id in self.unlocked_skills
+                        and skill_id not in self.equipped_skills):
+                    self.equipped_skills.append(skill_id)
+                    if len(self.equipped_skills) == self.MAX_EQUIPPED_SKILLS:
+                        break
+        self.auto_waves = auto_waves if isinstance(auto_waves, bool) else False
+
+    def serialize_active_user(self):
+        return {
+            "brains": self.brains,
+            "unlocked_skills": sorted(self.unlocked_skills),
+            "equipped_skills": list(self.equipped_skills),
+            "unlocked_towers": sorted(self.unlocked_towers),
+            "auto_waves": self.auto_waves,
+        }
 
     def load(self):
         try:
@@ -963,73 +1060,35 @@ class PlayerProfile:
             return
 
         if not isinstance(data, dict):
-            self.last_error = "Arquivo de perfil inválido; progresso iniciado vazio."
+            self.last_error = "Arquivo de perfis inválido; novos jogadores começam sem progresso."
             print(self.last_error, file=sys.stderr)
             return
 
-        brains = data.get("brains", 0)
-        unlocked = data.get("unlocked_skills", [])
-        equipped = data.get("equipped_skills", [])
-        unlocked_towers = data.get("unlocked_towers", [])
-        auto_waves = data.get("auto_waves", False)
-        valid_ids = {skill["id"] for skill in SKILLS}
-        valid_tower_ids = {TOWER_TYPES[unlock["kind"]]["id"] for unlock in TOWER_UNLOCKS}
-        invalid_data = (
-            ("brains" in data and (
-                not isinstance(brains, int) or isinstance(brains, bool) or brains < 0
-            ))
-            or ("unlocked_skills" in data and (
-                not isinstance(unlocked, list)
-                or any(not isinstance(skill_id, str) or skill_id not in valid_ids for skill_id in unlocked)
-            ))
-            or ("equipped_skills" in data and (
-                not isinstance(equipped, list)
-                or any(not isinstance(skill_id, str) or skill_id not in valid_ids for skill_id in equipped)
-            ))
-            or ("unlocked_towers" in data and (
-                not isinstance(unlocked_towers, list)
-                or any(not isinstance(tower_id, str) or tower_id not in valid_tower_ids
-                       for tower_id in unlocked_towers)
-            ))
-            or ("auto_waves" in data and not isinstance(auto_waves, bool))
-        )
-        if invalid_data:
-            self.last_error = "O perfil contém dados inválidos; campos inválidos foram ignorados."
+        users = data.get("users", {})
+        if not isinstance(users, dict):
+            self.last_error = "Lista de perfis inválida; jogadores novos começam sem progresso."
             print(self.last_error, file=sys.stderr)
-        if isinstance(brains, int) and not isinstance(brains, bool) and brains >= 0:
-            self.brains = brains
-        if isinstance(unlocked, list):
-            self.unlocked_skills = {
-                skill_id for skill_id in unlocked
-                if isinstance(skill_id, str) and skill_id in valid_ids
-            }
-        if isinstance(unlocked_towers, list):
-            self.unlocked_towers = {
-                tower_id for tower_id in unlocked_towers
-                if isinstance(tower_id, str) and tower_id in valid_tower_ids
-            }
-        if isinstance(auto_waves, bool):
-            self.auto_waves = auto_waves
-        if isinstance(equipped, list):
-            self.equipped_skills = []
-            for skill_id in equipped:
-                if (isinstance(skill_id, str) and skill_id in self.unlocked_skills
-                        and skill_id not in self.equipped_skills):
-                    self.equipped_skills.append(skill_id)
-                    if len(self.equipped_skills) == self.MAX_EQUIPPED_SKILLS:
-                        break
+            return
+        for initials, user_data in users.items():
+            if self.valid_initials(initials) and isinstance(user_data, dict):
+                self.users[initials] = user_data
+        last_user = data.get("active_user")
+        if self.valid_initials(last_user):
+            self.last_user = last_user
 
     def save(self):
+        if self.active_user is None:
+            self.last_error = "Identifique o jogador antes de salvar o perfil."
+            return self.last_error
+        self.users[self.active_user] = self.serialize_active_user()
         try:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
             temporary_path = self.path + ".tmp"
             with open(temporary_path, "w", encoding="utf-8") as profile_file:
                 json.dump({
-                    "brains": self.brains,
-                    "unlocked_skills": sorted(self.unlocked_skills),
-                    "equipped_skills": self.equipped_skills,
-                    "unlocked_towers": sorted(self.unlocked_towers),
-                    "auto_waves": self.auto_waves,
+                    "version": 2,
+                    "active_user": self.active_user,
+                    "users": self.users,
                 }, profile_file, ensure_ascii=False, indent=2)
             os.replace(temporary_path, self.path)
         except OSError as error:
@@ -1038,6 +1097,43 @@ class PlayerProfile:
             return self.last_error
         self.last_error = None
         return None
+
+    def select_user(self, initials):
+        initials = initials.upper() if isinstance(initials, str) else ""
+        if not self.valid_initials(initials):
+            return "Digite exatamente três letras de A a Z."
+        previous_user = self.active_user
+        previous_last_user = self.last_user
+        previous_users = {key: dict(value) for key, value in self.users.items()}
+        previous_brains = self.brains
+        previous_skills = set(self.unlocked_skills)
+        previous_equipped = list(self.equipped_skills)
+        previous_towers = set(self.unlocked_towers)
+        previous_auto_waves = self.auto_waves
+        if self.active_user is not None:
+            self.users[self.active_user] = self.serialize_active_user()
+        self.active_user = initials
+        self.last_user = initials
+        self.apply_user_data(self.users.get(initials, self.default_user_data()))
+        error = self.save()
+        if error:
+            self.active_user = previous_user
+            self.last_user = previous_last_user
+            self.users = previous_users
+            self.brains = previous_brains
+            self.unlocked_skills = previous_skills
+            self.equipped_skills = previous_equipped
+            self.unlocked_towers = previous_towers
+            self.auto_waves = previous_auto_waves
+        return error
+
+    def confirm_user(self, initials):
+        initials = initials.upper() if isinstance(initials, str) else ""
+        if not self.valid_initials(initials):
+            return "Digite exatamente três letras de A a Z."
+        if initials != self.active_user:
+            return f"Esta partida pertence ao perfil {self.active_user}. Digite essas iniciais para salvar."
+        return self.save()
 
     def award_brains(self, amount):
         self.brains += amount
@@ -1083,6 +1179,16 @@ class PlayerProfile:
         skill_id = skill["id"]
         if skill_id in self.unlocked_skills:
             return "Essa habilidade já foi desbloqueada."
+        skill_index = next(
+            (index for index, item in enumerate(SKILLS) if item["id"] == skill_id),
+            None,
+        )
+        if skill_index is None:
+            raise ValueError(f"Habilidade desconhecida: {skill_id}")
+        if skill_index > 0:
+            prerequisite = SKILLS[skill_index - 1]
+            if prerequisite["id"] not in self.unlocked_skills:
+                return f"Desbloqueie primeiro: {prerequisite['name']}."
         if self.brains < skill["cost"]:
             return "Cérebros insuficientes para essa habilidade."
         self.brains -= skill["cost"]
@@ -1179,11 +1285,123 @@ class DifficultyScreen:
         equipped_names = [skill["name"] for skill in SKILLS if skill["id"] in profile.equipped_skills]
         loadout = ", ".join(equipped_names) if equipped_names else "nenhuma"
         draw_centered_text(
-            f"Cérebros: {profile.brains}  |  Equipamento: {loadout}  |  B no menu para alterar",
+            f"Jogador {profile.active_user}  |  Cérebros: {profile.brains}  |  Equipamento: {loadout}",
             (WIDTH // 2, 566),
             PURPLE,
             SMALL,
         )
+
+class PlayerIdentificationScreen:
+    def __init__(self):
+        self.initials = [" ", " ", " "]
+        self.selected_index = 0
+        self.message = "Digite suas iniciais para carregar ou criar seu perfil."
+        self.can_back = profile.active_user is not None
+        self.title_rect = pygame.Rect(250, 500, 270, 58)
+        self.confirm_rect = pygame.Rect(580, 500, 270, 58)
+        self.letter_rects = [
+            pygame.Rect(WIDTH // 2 - 130 + index * 90, 320, 70, 88)
+            for index in range(3)
+        ]
+
+    def reset(self):
+        self.initials = [" ", " ", " "]
+        self.selected_index = 0
+        self.message = "Digite suas iniciais para carregar ou criar seu perfil."
+        self.can_back = profile.active_user is not None
+
+    def submit(self):
+        initials = "".join(self.initials)
+        error = profile.select_user(initials)
+        if error:
+            self.message = error
+            return None
+        return "selected"
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE and self.can_back:
+                return "back"
+            if event.key == pygame.K_LEFT:
+                self.selected_index = (self.selected_index - 1) % 3
+            elif event.key == pygame.K_RIGHT:
+                self.selected_index = (self.selected_index + 1) % 3
+            elif event.key in (pygame.K_UP, pygame.K_DOWN):
+                letter = self.initials[self.selected_index]
+                if "A" <= letter <= "Z":
+                    delta = 1 if event.key == pygame.K_UP else -1
+                    value = (ord(letter) - ord("A") + delta) % 26
+                else:
+                    value = 0 if event.key == pygame.K_UP else 25
+                self.initials[self.selected_index] = chr(value + ord("A"))
+            elif event.key == pygame.K_BACKSPACE:
+                self.initials[self.selected_index] = " "
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                return self.submit()
+            elif len(event.unicode) == 1 and event.unicode.isascii() and event.unicode.isalpha():
+                self.initials[self.selected_index] = event.unicode.upper()
+                if self.selected_index < 2:
+                    self.selected_index += 1
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.title_rect.collidepoint(event.pos):
+                return "title"
+            if self.confirm_rect.collidepoint(event.pos):
+                return self.submit()
+            for index, rect in enumerate(self.letter_rects):
+                if rect.collidepoint(event.pos):
+                    self.selected_index = index
+                    break
+        return None
+
+    def draw(self):
+        screen.fill((5, 7, 18))
+        panel = pygame.Rect(170, 120, 760, 500)
+        pygame.draw.rect(screen, (12, 17, 34), panel, border_radius=18)
+        pygame.draw.rect(screen, CYAN, panel, 3, border_radius=18)
+        draw_centered_text("IDENTIFIQUE SEU JOGADOR", (panel.centerx, 170), ORANGE, BIG)
+        draw_centered_text(
+            "Seu perfil guarda seus cérebros e desbloqueios neste computador.",
+            (panel.centerx, 220),
+            WHITE,
+            SMALL,
+        )
+        draw_centered_text(
+            "Perfis novos começam com zero cérebros.",
+            (panel.centerx, 250),
+            PURPLE,
+            SMALL,
+        )
+        for index, rect in enumerate(self.letter_rects):
+            selected = index == self.selected_index
+            pygame.draw.rect(
+                screen,
+                (23, 44, 52) if selected else (24, 20, 38),
+                rect,
+                border_radius=8,
+            )
+            pygame.draw.rect(screen, MINT if selected else BORDER, rect, 2, border_radius=8)
+            letter = self.initials[index] if self.initials[index] != " " else "_"
+            draw_centered_text(letter, rect.center, ORANGE if selected else WHITE, HUGE)
+        draw_centered_text(
+            "Digite letras ou use as setas para escolher a posicao e mudar a letra.",
+            (panel.centerx, 450),
+            MUTED,
+            SMALL,
+        )
+        pygame.draw.rect(screen, (48, 30, 32), self.title_rect, border_radius=9)
+        pygame.draw.rect(screen, ORANGE, self.title_rect, 2, border_radius=9)
+        draw_centered_text("VOLTAR À TELA INICIAL", self.title_rect.center, ORANGE, SMALL)
+        pygame.draw.rect(screen, (36, 58, 42), self.confirm_rect, border_radius=9)
+        pygame.draw.rect(screen, MINT, self.confirm_rect, 2, border_radius=9)
+        draw_centered_text("CONTINUAR", self.confirm_rect.center, MINT, FONT)
+        draw_centered_text(self.message, (panel.centerx, 585), WHITE, SMALL)
+        if self.can_back:
+            draw_centered_text(
+                f"Perfil ativo: {profile.active_user}  |  ESC: voltar",
+                (panel.centerx, 645),
+                MUTED,
+                SMALL,
+            )
 
 class HeroSelectionScreen:
     CARD_RECTS = [
@@ -1499,10 +1717,22 @@ class Game:
         self.wave_wait = False
         self.selected_kind = 0
         self.selected_tower = None
-        self.message = "ESPAÇO: iniciar onda 1"
+        self.message = "Clique em INICIAR ONDA para começar."
         self.message_time = 5
         self.auto_waves = profile.auto_waves
-        self.auto_waves_button_rect = pygame.Rect(365, 573, 150, 28)
+        self.auto_waves_button_rect = pygame.Rect(20, 572, 128, 30)
+        self.start_wave_button_rect = pygame.Rect(158, 572, 132, 30)
+        self.special_button_rect = pygame.Rect(300, 572, 128, 30)
+        self.hero_button_rect = pygame.Rect(438, 572, 150, 30)
+        self.upgrade_button_rect = pygame.Rect(598, 572, 198, 30)
+        self.sell_button_rect = pygame.Rect(806, 572, 108, 30)
+        self.skills_button_rect = pygame.Rect(924, 572, 156, 30)
+        self.skill_close_button_rect = pygame.Rect(470, 520, 160, 38)
+        self.tower_card_rects = [
+            pygame.Rect(20 + index * 177, 610, 169, 96)
+            for index in range(len(TOWER_TYPES))
+        ]
+        self.hero_targeting = False
         self.special_cooldown = 0
         self.special_wave_timer = 0
         self.hero_cooldown = 0
@@ -1515,7 +1745,6 @@ class Game:
         self.pause_selection = 0
         self.pause_button_rects = []
         self.confirm_button_rects = []
-        self.sell_button_rect = pygame.Rect(954, 573, 122, 27)
         self.skills_open = False
         self.bonus_damage = 1.1 if "sharpshooter" in self.equipped_skills else 1.0
         self.bonus_income = 1.15 if "harvest_bounty" in self.equipped_skills else 1.0
@@ -1525,10 +1754,12 @@ class Game:
         self.special_damage_multiplier = 1.2 if "lunar_focus" in self.equipped_skills else 1.0
         self.completed = False
         self.lost = False
-        self.name_entry_active = False
-        self.initials = ["A", "A", "A"]
-        self.initials_index = 0
         self.score_saved = False
+        self.result_saved = False
+        self.result_save_attempted = False
+        self.identity_save_error = None
+        self.result_replay_rect = pygame.Rect(300, 595, 230, 50)
+        self.result_menu_rect = pygame.Rect(570, 595, 230, 50)
         self.total_kills = 0
         self.total_upgrades = 0
         self.brains_earned = 0
@@ -1595,15 +1826,15 @@ class Game:
     def use_hero_ability(self, target_pos):
         if not self.run_started:
             self.notify("Inicie a primeira onda antes de usar o poder do herói.")
-            return
+            return False
         if self.hero_cooldown > 0:
             self.notify(f"{self.hero['ability']} recarregando: {math.ceil(self.hero_cooldown)} s.")
-            return
+            return False
 
         enemies = [enemy for enemy in self.enemies if not enemy.dead and not enemy.reached]
         if self.hero_id in ("coan", "inacio", "jair") and not self.play_rect.collidepoint(target_pos):
-            self.notify("Aponte o cursor para uma área do mapa e pressione G.")
-            return
+            self.notify("Escolha uma área dentro do mapa.")
+            return False
 
         affected = []
         if self.hero_id in ("coan", "inacio", "jair"):
@@ -1614,7 +1845,7 @@ class Game:
             ]
             if not affected:
                 self.notify("Não há inimigos na área escolhida.")
-                return
+                return False
 
         if self.hero_id == "coan":
             for enemy in affected:
@@ -1645,6 +1876,19 @@ class Game:
         self.hero_wave_color = HERO_WAVE_COLORS[self.hero_id]
         self.hero_wave_timer = .85
         self.hero_cooldown = self.hero["cooldown"]
+        return True
+
+    def begin_hero_ability(self):
+        if self.hero_id in ("coan", "inacio", "jair"):
+            if not self.run_started:
+                self.notify("Inicie a primeira onda antes de usar o poder do herói.")
+            elif self.hero_cooldown > 0:
+                self.notify(f"{self.hero['ability']} recarregando: {math.ceil(self.hero_cooldown)} s.")
+            else:
+                self.hero_targeting = True
+                self.notify("Clique na área do mapa onde deseja usar o poder.", 4)
+            return
+        self.use_hero_ability(self.play_rect.center)
 
     def buy_tower(self, pos):
         path_radius = 34 if self.scene else 28
@@ -1653,7 +1897,7 @@ class Game:
             self.notify("Posicione a torre fora da estrada dos monstros.")
             return
         if not profile.tower_is_unlocked(self.selected_kind):
-            self.notify(f"{TOWER_TYPES[self.selected_kind]['name']} ainda está bloqueada. Use T no menu.")
+            self.notify(f"{TOWER_TYPES[self.selected_kind]['name']} está bloqueada. Desbloqueie-a na árvore de habilidades do menu.")
             return
         if any(dist(pos,(t.x,t.y)) < 40 for t in self.towers):
             self.notify("As torres precisam de espaço entre si.")
@@ -1725,7 +1969,7 @@ class Game:
     def save_completed_score(self, initials):
         if self.score_saved:
             return None
-        if len(initials) != 3 or any(not ("A" <= char <= "Z") for char in initials):
+        if not profile.valid_initials(initials):
             raise ValueError("As iniciais do placar devem conter exatamente três letras.")
         if self.score_details is None:
             self.score_details = self.calculate_score()
@@ -1743,8 +1987,21 @@ class Game:
         self.ranking_save_error = leaderboard.add_result(result)
         if self.ranking_save_error is None:
             self.score_saved = True
-            self.name_entry_active = False
         return self.ranking_save_error
+
+    def save_player_result(self, initials):
+        error = profile.confirm_user(initials)
+        if error:
+            self.identity_save_error = error
+            return error
+        if self.completed:
+            error = self.save_completed_score(initials)
+            if error:
+                self.identity_save_error = error
+                return error
+        self.result_saved = True
+        self.identity_save_error = None
+        return None
 
     def update(self, dt):
         if self.paused:
@@ -1883,30 +2140,37 @@ class Game:
                 self.start_wave()
             else:
                 self.notify(
-                    f"Onda concluída! +{fmt_money(bonus)} abóboras.{brain_text} ESPAÇO: próxima onda.",
+                    f"Onda concluída! +{fmt_money(bonus)} abóboras.{brain_text} Clique em PRÓXIMA ONDA.",
                     5,
                 )
         for p in self.particles:
             p[0] += p[2]*dt; p[1] += p[3]*dt; p[4] -= dt
         self.particles = [p for p in self.particles if p[4] > 0]
+        if self.lost and self.score_details is None:
+            self.score_details = self.calculate_score()
 
     def draw_barn(self, scene=None):
+        if scene:
+            cx, cy = self.core
+            health = max(0, min(self.core_hp, 100))
+            color = MINT if health > 60 else ORANGE if health > 30 else RED
+            panel = pygame.Rect(cx - 8, cy - 49, 78, 24)
+            pygame.draw.rect(screen, (18, 13, 27), panel, border_radius=7)
+            pygame.draw.rect(screen, (107, 78, 124), panel, 1, border_radius=7)
+            track = pygame.Rect(panel.x + 7, panel.y + 8, 64, 9)
+            pygame.draw.rect(screen, (8, 7, 16), track, border_radius=4)
+            if health:
+                fill = track.copy()
+                fill.width = round(track.width * health / 100)
+                pygame.draw.rect(screen, color, fill, border_radius=4)
+                shine = pygame.Rect(fill.x + 2, fill.y + 2, max(0, fill.width - 4), 2)
+                if shine.width:
+                    pygame.draw.rect(screen, (226, 255, 238), shine, border_radius=2)
+            percent = SMALL.render(f"{health}%", True, color)
+            screen.blit(percent, (panel.centerx - percent.get_width() // 2, panel.bottom - 1))
+            return
         core = self.core
         cx, cy = core
-        if scene:
-            pygame.draw.circle(screen, (32, 18, 38), core, 16)
-            pygame.draw.circle(screen, ORANGE, core, 12, 2)
-            pygame.draw.circle(screen, WHITE, core, 3)
-            bar_width = 40
-            pygame.draw.rect(screen, (38, 24, 52), (cx-bar_width//2, cy-24, bar_width, 5), border_radius=3)
-            pygame.draw.rect(
-                screen,
-                MINT if self.core_hp > 35 else RED,
-                (cx-bar_width//2, cy-24, int(bar_width*max(0, self.core_hp)/100), 5),
-                border_radius=3,
-            )
-            return
-        pygame.draw.circle(screen, (46, 30, 62), CORE, 38)
         pygame.draw.rect(screen, (140, 42, 44), (cx-22, cy-12, 44, 34), border_radius=3)
         pygame.draw.polygon(screen, (92, 28, 32), [(cx-27, cy-10), (cx, cy-34), (cx+27, cy-10)])
         pygame.draw.polygon(screen, (60, 18, 22), [(cx-27, cy-10), (cx, cy-34), (cx+27, cy-10)], 2)
@@ -1914,10 +2178,6 @@ class Game:
         pygame.draw.line(screen, (230, 210, 190), (cx-8, cy+3), (cx+8, cy+22), 1)
         pygame.draw.line(screen, (230, 210, 190), (cx+8, cy+3), (cx-8, cy+22), 1)
         pygame.draw.circle(screen, (255, 220, 120), (cx, cy-14), 4)
-        ok = self.core_hp > 35
-        w = 50
-        pygame.draw.rect(screen, (38, 24, 52), (cx-w//2, cy-48, w, 6), border_radius=3)
-        pygame.draw.rect(screen, MINT if ok else RED, (cx-w//2, cy-48, int(w*max(0, self.core_hp)/100), 6), border_radius=3)
 
     def draw_hero_at_base(self):
         if self.hero_map_sprite is None:
@@ -2046,7 +2306,7 @@ class Game:
         draw_text("Este equipamento foi escolhido no menu com cérebros.", 295, 207, MUTED, SMALL)
         equipped = [skill for skill in SKILLS if skill["id"] in self.equipped_skills]
         if not equipped:
-            draw_text("Nenhuma habilidade equipada. Abra a loja no menu com B.", 295, 265, WHITE, FONT)
+            draw_text("Nenhuma habilidade equipada. Escolha-as na árvore do menu.", 295, 265, WHITE, FONT)
         for index, skill in enumerate(equipped):
             y = 265 + index * 65
             pygame.draw.rect(screen, (44, 56, 40), (280, y, 535, 55), border_radius=9)
@@ -2054,7 +2314,9 @@ class Game:
             draw_text(skill["name"], 296, y + 7, MINT, FONT)
             draw_text(skill["description"], 296, y + 31, WHITE, SMALL)
         draw_text(f"Cérebros disponíveis: {profile.brains}  |  Equipadas: {len(equipped)}/3", 295, 485, ORANGE, SMALL)
-        draw_text("ESC ou T para voltar. Compre/equipe habilidades no menu (B).", 295, 530, MUTED, SMALL)
+        pygame.draw.rect(screen, (42, 30, 58), self.skill_close_button_rect, border_radius=8)
+        pygame.draw.rect(screen, MINT, self.skill_close_button_rect, 2, border_radius=8)
+        draw_centered_text("FECHAR", self.skill_close_button_rect.center, MINT, SMALL)
 
     def draw_pause_overlay(self):
         if self.pause_screen == "settings":
@@ -2098,6 +2360,132 @@ class Game:
             draw_centered_text(label, rect.center, MINT if selected else WHITE, FONT)
         draw_centered_text("↑ / ↓ para escolher | ENTER seleciona | ESC continua", (panel.centerx, panel.bottom - 31), MUTED, SMALL)
 
+    def draw_action_button(self, rect, label, color, enabled=True):
+        fill = (42, 52, 40) if enabled else (31, 27, 38)
+        border = color if enabled else (82, 76, 88)
+        pygame.draw.rect(screen, fill, rect, border_radius=7)
+        pygame.draw.rect(screen, border, rect, 2, border_radius=7)
+        draw_centered_text(label, rect.center, color if enabled else MUTED, SMALL)
+
+    def draw_result_overlay(self):
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((4, 5, 16, 225))
+        screen.blit(overlay, (0, 0))
+        panel = pygame.Rect(48, 38, 1004, 644)
+        pygame.draw.rect(screen, (11, 13, 27), panel, border_radius=18)
+        pygame.draw.rect(screen, BORDER, panel, 2, border_radius=18)
+
+        title_text = "FAZENDA PROTEGIDA!" if self.completed else "A COLHEITA FOI PERDIDA"
+        title_color = MINT if self.completed else RED
+        draw_centered_text(title_text, (panel.centerx, 75), title_color, BIG)
+        draw_centered_text(
+            f"JOGADOR {profile.active_user}  ·  {self.difficulty_spec['name']}",
+            (panel.centerx, 112),
+            CYAN,
+            SMALL,
+        )
+
+        summary = pygame.Rect(72, 145, 438, 410)
+        ranking = pygame.Rect(530, 145, 498, 410)
+        for rect in (summary, ranking):
+            pygame.draw.rect(screen, (17, 19, 35), rect, border_radius=12)
+            pygame.draw.rect(screen, (81, 64, 100), rect, 1, border_radius=12)
+
+        draw_text("RESUMO DA PARTIDA", 92, 162, ORANGE, FONT)
+        if self.score_details is None:
+            self.score_details = self.calculate_score()
+        details = self.score_details
+        score_text = BIG.render(f"{details['score']:,}".replace(",", "."), True, (255, 228, 92))
+        screen.blit(score_text, (92, 195))
+        draw_text("PONTUAÇÃO", 94, 232, MUTED, SMALL)
+
+        if self.completed:
+            outcome = "CAMPANHA CONCLUÍDA"
+            outcome_color = MINT
+        else:
+            reached_wave = min(self.wave + 1, self.difficulty_spec["wave_count"])
+            outcome = f"DERROTA NA ONDA {reached_wave}/{self.difficulty_spec['wave_count']}"
+            outcome_color = RED
+        draw_text(outcome, 92, 266, outcome_color, FONT)
+        stats = [
+            f"Integridade do celeiro: {self.core_hp}%",
+            f"Tempo de campanha: {format_duration(self.elapsed_seconds)}",
+            f"Inimigos eliminados: {self.total_kills}",
+            f"Melhorias compradas: {self.total_upgrades}",
+            f"Cérebros ganhos: {self.brains_earned}  ·  Saldo: {profile.brains}",
+        ]
+        for index, line in enumerate(stats):
+            draw_text(line, 92, 305 + index * 31, WHITE if index < 4 else PURPLE, SMALL)
+        if self.completed:
+            draw_text(
+                f"Multiplicador de dificuldade: {details['multiplier']:.2f}x",
+                92,
+                475,
+                MUTED,
+                SMALL,
+            )
+        else:
+            draw_text("A campanha perdida não entra no ranking.", 92, 475, MUTED, SMALL)
+
+        draw_text("PLACAR GLOBAL  ·  MELHORES JOGADORES", 550, 162, CYAN, FONT)
+        draw_text("POS", 550, 198, MUTED, ARCADE_SMALL)
+        draw_text("JOGADOR", 604, 198, MUTED, ARCADE_SMALL)
+        draw_text("SCORE", 730, 198, MUTED, ARCADE_SMALL)
+        draw_text("MODO", 910, 198, MUTED, ARCADE_SMALL)
+        pygame.draw.line(screen, (69, 81, 102), (548, 222), (1010, 222), 1)
+
+        records = leaderboard.all_records()
+        for place, (entry, difficulty) in enumerate(records, 1):
+            y = 232 + (place - 1) * 30
+            if place == 1:
+                color = (255, 228, 92)
+            elif place == 2:
+                color = (205, 222, 235)
+            elif place == 3:
+                color = (225, 151, 104)
+            else:
+                color = WHITE
+            player = str(entry.get("player", "AAA")).upper()[:3].ljust(3, "A")
+            if player == profile.active_user:
+                pygame.draw.rect(screen, (31, 43, 47), (546, y - 3, 466, 26), border_radius=4)
+            draw_text(f"{place:02}", 550, y, color, ARCADE_SMALL)
+            draw_text(player, 604, y, MINT, ARCADE_SMALL)
+            draw_text(f"{entry['score']:,}".replace(",", " "), 730, y, color, ARCADE_SMALL)
+            draw_text(DIFFICULTIES[difficulty]["name"][:3], 910, y, PURPLE, ARCADE_SMALL)
+        if not records:
+            draw_centered_text(
+                "AINDA NÃO HÁ PONTUAÇÕES SALVAS",
+                (ranking.centerx, 340),
+                MUTED,
+                SMALL,
+            )
+
+        save_error = self.identity_save_error or self.ranking_save_error or self.brain_save_error
+        if save_error:
+            draw_wrapped_text(
+                f"Falha ao salvar: {save_error}",
+                88,
+                561,
+                924,
+                RED,
+                SMALL,
+                max_lines=2,
+            )
+        buttons = [
+            (self.result_replay_rect, "JOGAR NOVAMENTE" if self.result_saved else "TENTAR SALVAR", MINT),
+            (self.result_menu_rect, "VOLTAR AO MENU", CYAN),
+        ]
+        for rect, label, color in buttons:
+            pygame.draw.rect(screen, (29, 43, 43), rect, border_radius=9)
+            pygame.draw.rect(screen, color, rect, 2, border_radius=9)
+            draw_centered_text(label, rect.center, color, SMALL)
+        draw_centered_text(
+            "ENTER: jogar novamente  ·  ESC: menu",
+            (panel.centerx, 660),
+            MUTED,
+            SMALL,
+        )
+
     def draw_ui(self):
         pygame.draw.rect(screen, (18, 11, 29), (0, 0, WIDTH, 68))
         pygame.draw.line(screen, BORDER, (0, 68), (WIDTH, 68), 2)
@@ -2111,9 +2499,9 @@ class Game:
             draw_text(value, x + 20, 32, WHITE, FONT)
             pygame.draw.line(screen, (72, 55, 88), (x + 166, 14), (x + 166, 54), 1)
 
-        pygame.draw.circle(screen, MINT if self.core_hp > 35 else RED, (393, 34), 5)
-        draw_text("CELEIRO", 406, 10, MUTED, SMALL)
-        draw_text(f"{self.core_hp}%", 406, 32, MINT if self.core_hp > 35 else RED, FONT)
+        core_color = MINT if self.core_hp > 60 else ORANGE if self.core_hp > 30 else RED
+        draw_text("CELEIRO", 378, 10, MUTED, SMALL)
+        draw_text(f"{self.core_hp}%", 378, 32, core_color, FONT)
         pygame.draw.line(screen, (72, 55, 88), (548, 14), (548, 54), 1)
 
         wave_count = self.difficulty_spec["wave_count"]
@@ -2132,63 +2520,92 @@ class Game:
         draw_text("HERÓI", 925, 10, MUTED, SMALL)
         draw_text(self.hero["name"], 925, 32, hero_color, FONT)
 
-        # Painel inferior
-        pygame.draw.rect(screen, PANEL, (0,565,WIDTH,155))
-        pygame.draw.line(screen, BORDER, (0,565),(WIDTH,565),2)
-        draw_text("TORRES | 1-6 selecionam | U: melhoria", 24, 576, MUTED, SMALL)
+        pygame.draw.rect(screen, PANEL, (0, 565, WIDTH, 155))
+        pygame.draw.line(screen, BORDER, (0, 565), (WIDTH, 565), 2)
         pulse_status = "PRONTO" if self.special_cooldown <= 0 else f"{math.ceil(self.special_cooldown)}s"
         hero_status = "PRONTO" if self.hero_cooldown <= 0 else f"{math.ceil(self.hero_cooldown)}s"
-        pygame.draw.rect(
-            screen,
-            (44, 56, 40) if self.auto_waves else (36, 24, 54),
+        wave_button_label = (
+            "ONDA EM CURSO"
+            if self.wave_active
+            else "INICIAR ONDA" if self.wave == 0 else "PRÓXIMA ONDA"
+        )
+        self.draw_action_button(
             self.auto_waves_button_rect,
-            border_radius=6,
+            f"ONDAS {'AUTO' if self.auto_waves else 'MANUAL'}",
+            MINT if self.auto_waves else CYAN,
         )
-        mode_color = MINT if self.auto_waves else CYAN
-        pygame.draw.rect(screen, mode_color, self.auto_waves_button_rect, 2, border_radius=6)
-        draw_centered_text(
-            f"ONDAS: {'AUTO' if self.auto_waves else 'MANUAL'}",
-            self.auto_waves_button_rect.center,
-            mode_color,
-            SMALL,
+        self.draw_action_button(
+            self.start_wave_button_rect,
+            wave_button_label,
+            MUTED if self.wave_active or self.completed or self.lost else MINT,
+            enabled=not self.wave_active and not self.completed and not self.lost,
         )
-        draw_text(
-            f"F: {pulse_status} | G: {hero_status}",
-            525,
-            576,
-            WHITE,
-            SMALL,
+        self.draw_action_button(
+            self.special_button_rect,
+            f"PULSO {pulse_status}",
+            (255, 218, 125),
+            enabled=self.special_cooldown <= 0 and not self.completed and not self.lost,
         )
-        if self.selected_tower:
-            t = self.selected_tower
-            cost = tower_upgrade_cost(t.cost, t.level)
-            refund = round(TOWER_TYPES[t.kind]["cost"] * 0.7)
-            upgrade_label = (
-                f"{TOWER_TYPES[t.kind]['name']} Nv.{t.level}/{TOWER_MAX_LEVEL} | U {fmt_money(cost)}"
-                if cost is not None
-                else f"{TOWER_TYPES[t.kind]['name']} Nv.{t.level}/{TOWER_MAX_LEVEL} | MÁX."
-            )
-            draw_text(upgrade_label, 735, 576, t.color, SMALL)
-            pygame.draw.rect(screen, (72, 42, 48), self.sell_button_rect, border_radius=6)
-            pygame.draw.rect(screen, RED, self.sell_button_rect, 1, border_radius=6)
-            draw_centered_text(f"VENDER +{refund}", self.sell_button_rect.center, WHITE, SMALL)
-        else:
-            draw_text("Clique numa torre para selecioná-la", 735, 576, MUTED, SMALL)
-        for i,spec in enumerate(TOWER_TYPES):
-            x = 24+i*174
+        self.draw_action_button(
+            self.hero_button_rect,
+            f"PODER {hero_status}",
+            hero_color,
+            enabled=self.hero_cooldown <= 0 and self.run_started and not self.completed and not self.lost,
+        )
+
+        selected = self.selected_tower
+        upgrade_cost = tower_upgrade_cost(selected.cost, selected.level) if selected else None
+        upgrade_label = (
+            f"MELHORAR {fmt_money(upgrade_cost)}"
+            if upgrade_cost is not None
+            else "NÍVEL MÁXIMO" if selected
+            else "MELHORAR TORRE"
+        )
+        self.draw_action_button(
+            self.upgrade_button_rect,
+            upgrade_label,
+            selected.color if selected and upgrade_cost is not None else MUTED,
+            enabled=selected is not None and upgrade_cost is not None,
+        )
+        refund = round(TOWER_TYPES[selected.kind]["cost"] * 0.7) if selected else 0
+        self.draw_action_button(
+            self.sell_button_rect,
+            f"VENDER +{refund}" if selected else "VENDER",
+            RED if selected else MUTED,
+            enabled=selected is not None,
+        )
+        self.draw_action_button(self.skills_button_rect, "HABILIDADES", PURPLE)
+
+        for i, spec in enumerate(TOWER_TYPES):
             selected = self.selected_kind == i
             unlocked = profile.tower_is_unlocked(i)
             card_color = spec["color"] if unlocked else MUTED
-            card = pygame.Rect(x, 598, 164, 94)
-            pygame.draw.rect(screen,(52,34,72) if selected else (36,24,54),card,border_radius=9)
-            pygame.draw.rect(screen,card_color if selected or unlocked else BORDER,card,2,border_radius=9)
-            draw_text(f"{i+1}. {spec['name']}",x+8,603,card_color,SMALL)
+            card = self.tower_card_rects[i]
+            pygame.draw.rect(screen, (52, 34, 72) if selected else (36, 24, 54), card, border_radius=9)
+            pygame.draw.rect(screen, card_color if selected or unlocked else BORDER, card, 2, border_radius=9)
+            draw_wrapped_text(spec["name"], card.x + 8, card.y + 6, card.w - 16, card_color, SMALL, max_lines=1)
             if unlocked:
-                draw_text(f"{fmt_money(spec['cost'])} abóboras",x+8,625,WHITE,SMALL)
-                draw_wrapped_text(spec["desc"],x+8,647,card.w-16,MUTED,SMALL,max_lines=2)
+                draw_text(f"{fmt_money(spec['cost'])} abóboras", card.x + 8, card.y + 27, WHITE, SMALL)
+                draw_wrapped_text(
+                    spec["desc"],
+                    card.x + 8,
+                    card.y + 49,
+                    card.w - 16,
+                    MUTED,
+                    SMALL,
+                    max_lines=2,
+                )
             else:
-                draw_text("BLOQUEADA",x+8,625,ORANGE,SMALL)
-                draw_text("Desbloqueie no menu",x+8,647,MUTED,SMALL)
+                draw_text("BLOQUEADA", card.x + 8, card.y + 29, ORANGE, SMALL)
+                draw_wrapped_text(
+                    "Desbloqueie na árvore de habilidades",
+                    card.x + 8,
+                    card.y + 51,
+                    card.w - 16,
+                    MUTED,
+                    SMALL,
+                    max_lines=2,
+                )
         if self.message_time > 0:
             message_lines = wrap_text(self.message, FONT, 850)
             if len(message_lines) > 2:
@@ -2213,80 +2630,7 @@ class Game:
                     FONT,
                 )
         if self.completed or self.lost:
-            veil=pygame.Surface((WIDTH,HEIGHT),pygame.SRCALPHA); veil.fill((8,3,16,205)); screen.blit(veil,(0,0))
-            result_panel = pygame.Rect(135, 165, 830, 390)
-            pygame.draw.rect(screen, PANEL, result_panel, border_radius=18)
-            pygame.draw.rect(screen, BORDER, result_panel, 2, border_radius=18)
-            title = "FAZENDA PROTEGIDA!" if self.completed else "A COLHEITA FOI PERDIDA"
-            col = MINT if self.completed else RED
-            txt = HUGE.render(title, True, col)
-            screen.blit(txt, (WIDTH//2-txt.get_width()//2, 195))
-            if self.completed:
-                details = self.score_details
-                if details is None:
-                    raise RuntimeError("Vitória sem score calculado.")
-                score_text = BIG.render(f"SCORE GLOBAL: {details['score']:,}".replace(",", "."), True, ORANGE)
-                screen.blit(score_text, (WIDTH//2-score_text.get_width()//2, 245))
-                score_lines = [
-                    f"Integridade: {details['health']} / 5.000  |  Tempo: {details['time']} / 2.000",
-                    f"Melhorias: {details['upgrades']} / 1.000  |  Habilidades: {details['talents']} / 500",
-                    f"Economia: {details['savings']} / 1.500  |  Dificuldade: {self.difficulty_spec['name']}",
-                    f"Partida: {format_duration(self.elapsed_seconds)}  |  Multiplicador: {details['multiplier']:.2f}x",
-                ]
-                for index, line in enumerate(score_lines):
-                    text = SMALL.render(line, True, WHITE)
-                    screen.blit(text, (WIDTH//2-text.get_width()//2, 295 + index*25))
-                brain_summary = SMALL.render(
-                    f"Cérebros ganhos nesta campanha: {self.brains_earned}  |  Saldo: {profile.brains}",
-                    True,
-                    PURPLE,
-                )
-                screen.blit(brain_summary, (WIDTH//2-brain_summary.get_width()//2, 405))
-                if self.ranking_save_error:
-                    warning = SMALL.render("Não foi possível salvar o ranking; veja o terminal.", True, RED)
-                    screen.blit(warning, (WIDTH//2-warning.get_width()//2, 428))
-                elif self.brain_save_error:
-                    warning = SMALL.render("Não foi possível salvar os cérebros; veja o terminal.", True, RED)
-                    screen.blit(warning, (WIDTH//2-warning.get_width()//2, 428))
-                if self.score_saved:
-                    prompt = FONT.render("ENTER: jogar novamente  |  R: ranking  |  ESC: menu", True, WHITE)
-                else:
-                    prompt = FONT.render("ENTER: inserir suas iniciais no placar", True, WHITE)
-            else:
-                prompt = FONT.render("ENTER para jogar novamente  |  ESC para o menu", True, WHITE)
-            screen.blit(prompt, (WIDTH//2-prompt.get_width()//2, 500))
-        if self.completed and self.name_entry_active:
-            veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            veil.fill((0, 3, 12, 225))
-            screen.blit(veil, (0, 0))
-            initials_panel = pygame.Rect(180, 165, 740, 390)
-            pygame.draw.rect(screen, (5, 11, 18), initials_panel)
-            pygame.draw.rect(screen, CYAN, initials_panel, 4)
-            pygame.draw.rect(screen, (29, 71, 66), initials_panel.inflate(-14, -14), 2)
-            title = ARCADE_FONT.render("NEW HIGH SCORE!", True, (255, 228, 92))
-            screen.blit(title, (initials_panel.centerx-title.get_width()//2, 195))
-            score = self.score_details["score"] if self.score_details else 0
-            score_text = ARCADE_FONT.render(f"SCORE  {score:,}".replace(",", " "), True, MINT)
-            screen.blit(score_text, (initials_panel.centerx-score_text.get_width()//2, 242))
-            instructions = ARCADE_SMALL.render(
-                "LEFT / RIGHT: SELECT   UP / DOWN: LETTER   TYPE A-Z",
-                True,
-                CYAN,
-            )
-            screen.blit(instructions, (initials_panel.centerx-instructions.get_width()//2, 315))
-            for index, letter in enumerate(self.initials):
-                center = (initials_panel.centerx + (index - 1) * 86, 390)
-                if index == self.initials_index:
-                    box = pygame.Rect(center[0]-29, center[1]-35, 58, 68)
-                    pygame.draw.rect(screen, (20, 42, 45), box)
-                    pygame.draw.rect(screen, MINT, box, 2)
-                rendered = ARCADE_FONT.render(letter, True, (255, 228, 92) if index == self.initials_index else WHITE)
-                screen.blit(rendered, (center[0]-rendered.get_width()//2, center[1]-rendered.get_height()//2))
-            prompt = ARCADE_SMALL.render("ENTER: SAVE SCORE     ESC: SAVE & MENU", True, MINT)
-            screen.blit(prompt, (initials_panel.centerx-prompt.get_width()//2, 475))
-            if self.ranking_save_error:
-                error_text = SMALL.render("Não foi possível salvar o placar. Tente ENTER novamente.", True, RED)
-                screen.blit(error_text, (initials_panel.centerx-error_text.get_width()//2, 515))
+            self.draw_result_overlay()
 
     def draw(self):
         screen.fill(BG)
@@ -2381,9 +2725,22 @@ class MusicController:
 
 class MenuScreen:
     """Menu principal: arte com os botões; seleção por mouse ou teclado."""
-    ITEMS = [("JOGAR", "play"), ("CONFIGURAÇÕES", "settings"), ("COMO JOGAR", "howto"), ("SAIR", "quit")]
-    RECTS = [pygame.Rect(51, 325, 247, 45), pygame.Rect(51, 379, 247, 44),
-             pygame.Rect(51, 431, 247, 44), pygame.Rect(51, 485, 247, 41)]
+    ITEMS = [
+        ("JOGAR", "play"),
+        ("ÁRVORE DE HABILIDADES", "skills"),
+        ("RANKING", "ranking"),
+        ("COMO JOGAR", "howto"),
+        ("CONFIGURAÇÕES", "settings"),
+        ("SAIR", "quit"),
+    ]
+    RECTS = [
+        pygame.Rect(52, 326, 250, 45),
+        pygame.Rect(52, 375, 250, 47),
+        pygame.Rect(52, 428, 250, 47),
+        pygame.Rect(52, 482, 250, 45),
+        pygame.Rect(52, 534, 250, 46),
+        pygame.Rect(52, 585, 250, 45),
+    ]
     SKILL_NODE_SOURCE_CENTERS = [
         (1050, 210),
         (1140, 365),
@@ -2407,14 +2764,17 @@ class MenuScreen:
     def __init__(self):
         self.time = 0.0
         self.sel = 0
-        self.panel = None   # None | "settings" | "howto" | "ranking" | "skills" | "towers"
+        self.panel = None   # None | "settings" | "howto" | "ranking" | "skills"
         self.volume_dragging = False
         self.skill_message = "Selecione um nó para consultar e alterar a habilidade."
         self.skill_selected = 0
         self.tower_message = "Selecione uma torre e use o botão para desbloqueá-la."
         self.tower_selected = 0
+        self.tree_selection = None
+        self.tree_hover = None
         self.skill_tree_image = None
         self.skill_action_rect = pygame.Rect(850, 635, 220, 52)
+        self.profile_button_rect = pygame.Rect(890, 18, 190, 42)
         self.image = None
         path = os.path.join(BASE_DIR, "assets", "backgrounds", "menu_principal.png")
         try:
@@ -2435,6 +2795,10 @@ class MenuScreen:
     def enter(self):
         self.time = 0.0
         self.panel = None
+        self.tree_selection = None
+        self.tree_hover = None
+        self.skill_message = "Clique em uma habilidade para ver os detalhes."
+        self.tower_message = "Clique em uma torre para ver os detalhes."
 
     def update(self, dt):
         self.time += dt
@@ -2456,24 +2820,11 @@ class MenuScreen:
                 ):
                     index = event.key - pygame.K_1
                     self.skill_selected = index
+                    self.tree_selection = ("skill", index)
                 elif self.panel == "skills" and event.key in (
                     pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE
                 ):
-                    self.activate_selected_skill()
-                elif self.panel == "skills" and event.key == pygame.K_t:
-                    self.panel = "towers"
-                    self.tower_message = "Selecione uma torre e use o botão para desbloqueá-la."
-                elif self.panel == "towers" and event.key in (
-                    pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
-                ):
-                    self.tower_selected = event.key - pygame.K_1
-                elif self.panel == "towers" and event.key in (
-                    pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE
-                ):
-                    self.activate_selected_tower()
-                elif self.panel == "towers" and event.key == pygame.K_b:
-                    self.panel = "skills"
-                    self.skill_message = "Selecione um nó e use o botão de ação para comprar/equipar."
+                    self.activate_selected_tree_node()
                 elif self.panel == "settings" and event.key in (
                     pygame.K_LEFT, pygame.K_DOWN, pygame.K_RIGHT, pygame.K_UP
                 ):
@@ -2485,15 +2836,7 @@ class MenuScreen:
                 if self.panel == "settings" and self.volume_dragging:
                     self.set_volume_from_x(event.pos[0])
                 elif self.panel == "skills":
-                    for index, rect in enumerate(self.skill_node_rects()):
-                        if rect.collidepoint(event.pos):
-                            self.skill_selected = index
-                            break
-                elif self.panel == "towers":
-                    for index, rect in enumerate(self.tower_node_rects()):
-                        if rect.collidepoint(event.pos):
-                            self.tower_selected = index
-                            break
+                    self.tree_hover = self.tree_node_at(event.pos)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.panel == "settings" and self.toggle_rect().collidepoint(event.pos):
                     toggle_fullscreen()
@@ -2502,24 +2845,22 @@ class MenuScreen:
                     self.set_volume_from_x(event.pos[0])
                 elif self.panel == "skills" and self.skill_back_rect().collidepoint(event.pos):
                     back = True
-                elif self.panel == "towers" and self.skill_back_rect().collidepoint(event.pos):
-                    back = True
                 elif self.panel == "skills":
                     if self.skill_action_rect.collidepoint(event.pos):
-                        self.activate_selected_skill()
+                        self.activate_selected_tree_node()
                     else:
-                        for index, rect in enumerate(self.skill_node_rects()):
-                            if rect.collidepoint(event.pos):
+                        selection = self.tree_node_at(event.pos)
+                        if selection is not None:
+                            self.tree_selection = selection
+                            self.tree_hover = selection
+                            kind, index = selection
+                            if kind == "skill":
                                 self.skill_selected = index
-                                break
-                elif self.panel == "towers":
-                    if self.skill_action_rect.collidepoint(event.pos):
-                        self.activate_selected_tower()
-                    else:
-                        for index, rect in enumerate(self.tower_node_rects()):
-                            if rect.collidepoint(event.pos):
+                                self.skill_message = "Use o botão para comprar, equipar ou remover."
+                            else:
                                 self.tower_selected = index
-                                break
+                                self.tower_message = "Use o botão para desbloquear a torre."
+                            self.activate_selected_tree_node()
                 elif self.back_rect().collidepoint(event.pos) or not self.panel_rect().collidepoint(event.pos):
                     back = True
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -2533,20 +2874,14 @@ class MenuScreen:
                 if r.collidepoint(event.pos):
                     self.sel = i
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.profile_button_rect.collidepoint(event.pos):
+                return "profile"
             for i, r in enumerate(self.RECTS):
                 if r.collidepoint(event.pos):
                     self.sel = i
                     return self.activate(i)
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r:
-                self.panel = "ranking"
-            elif event.key == pygame.K_b:
-                self.panel = "skills"
-                self.skill_message = "Selecione um nó e use o botão de ação para comprar/equipar."
-            elif event.key == pygame.K_t:
-                self.panel = "towers"
-                self.tower_message = "Selecione uma torre e use o botão para desbloqueá-la."
-            elif event.key in (pygame.K_UP, pygame.K_w):
+            if event.key in (pygame.K_UP, pygame.K_w):
                 self.sel = (self.sel - 1) % len(self.ITEMS)
             elif event.key in (pygame.K_DOWN, pygame.K_s):
                 self.sel = (self.sel + 1) % len(self.ITEMS)
@@ -2588,6 +2923,28 @@ class MenuScreen:
     def tower_node_rects(self):
         return self.node_rects(self.TOWER_NODE_SOURCE_CENTERS, 72)
 
+    def draw_skill_glow(self, center, color):
+        pulse = (math.sin(self.time * 4.5) + 1) / 2
+        glow = pygame.Surface((104, 104), pygame.SRCALPHA)
+        glow_center = (52, 52)
+        for radius, alpha in (
+            (45, 8),
+            (39, 12),
+            (33, 17),
+            (27, 22 + round(10 * pulse)),
+        ):
+            pygame.draw.circle(glow, (*color, alpha), glow_center, radius)
+        screen.blit(glow, (center[0] - glow_center[0], center[1] - glow_center[1]))
+
+    def tree_node_at(self, position):
+        for index, rect in enumerate(self.skill_node_rects()):
+            if rect.collidepoint(position):
+                return "skill", index
+        for index, rect in enumerate(self.tower_node_rects()):
+            if rect.collidepoint(position):
+                return "tower", index
+        return None
+
     @staticmethod
     def skill_back_rect():
         return pygame.Rect(0, 0, 190, 58)
@@ -2599,6 +2956,17 @@ class MenuScreen:
     def activate_selected_tower(self):
         kind = self.TOWER_NODE_ORDER[self.tower_selected]
         self.tower_message = profile.unlock_tower(kind)
+
+    def activate_selected_tree_node(self):
+        if self.tree_selection is None:
+            return
+        kind, index = self.tree_selection
+        if kind == "skill":
+            self.skill_selected = index
+            self.activate_selected_skill()
+        else:
+            self.tower_selected = index
+            self.activate_selected_tower()
 
     def back_rect(self):
         r = self.panel_rect()
@@ -2672,26 +3040,27 @@ class MenuScreen:
 
         draw_text("CONTROLES", right_x, y, MINT, FONT)
         controls = [
-            ("Clique no painel / 1-6", "escolher torre"),
+            ("Clique no cartão", "escolher torre"),
             ("Clique no mapa", "posicionar fora da estrada"),
             ("Clique em uma torre", "selecionar e ver alcance"),
-            ("U", "melhorar torre selecionada"),
-            ("ESPAÇO", "iniciar onda no modo manual"),
-            ("BOTÃO ONDAS", "manual / automático"),
-            ("F", "usar pulso lunar"),
-            ("G", "usar poder do herói"),
-            ("T", "ver habilidades equipadas"),
+            ("MELHORAR", "melhorar a torre selecionada"),
+            ("VENDER", "vender a torre selecionada"),
+            ("PRÓXIMA ONDA", "iniciar a onda manual"),
+            ("ONDAS", "alternar manual / automático"),
+            ("PULSO", "ativar o pulso lunar"),
+            ("PODER", "usar o poder do herói"),
+            ("HABILIDADES", "ver habilidades equipadas"),
             ("ESC", "abrir pausa"),
         ]
         for i, (k, d) in enumerate(controls):
-            cy = y + 31 + i * 28
+            cy = y + 31 + i * 23
             draw_text(k, right_x, cy, ORANGE, SMALL)
             draw_wrapped_text(d, right_x + 170, cy, column_width - 170, WHITE, SMALL, max_lines=1)
-        draw_text("RECURSOS", right_x, y + 310, MINT, FONT)
+        draw_text("RECURSOS", right_x, y + 300, MINT, FONT)
         draw_wrapped_text(
-            "Abóboras compram torres e melhorias. Cérebros desbloqueiam habilidades (B) e torres (T) no menu. Cada chefão derrotado concede 3 cérebros.",
+            "Abóboras compram torres e melhorias. Cérebros desbloqueiam habilidades e torres na árvore do menu. Cada chefão derrotado concede 3 cérebros.",
             right_x,
-            y + 338,
+            y + 328,
             column_width,
             MUTED,
             SMALL,
@@ -2709,98 +3078,53 @@ class MenuScreen:
         screen.blit(brain_count_patch, (978, 7))
         draw_centered_text(str(profile.brains), (1002, 28), WHITE, BIG)
 
-        node_rects = self.skill_node_rects()
-        for index, (skill, rect) in enumerate(zip(SKILLS, node_rects)):
+        for index, (skill, rect) in enumerate(zip(SKILLS, self.skill_node_rects())):
             unlocked = skill["id"] in profile.unlocked_skills
             equipped = skill["id"] in profile.equipped_skills
-            color = MINT if equipped else CYAN if unlocked else ORANGE if profile.brains >= skill["cost"] else MUTED
-            center = rect.center
-            pygame.draw.circle(screen, color, center, 36, 4 if index == self.skill_selected else 2)
-            if index == self.skill_selected:
-                pygame.draw.circle(screen, WHITE, center, 42, 1)
+            prerequisite_unlocked = (
+                index == 0
+                or SKILLS[index - 1]["id"] in profile.unlocked_skills
+            )
+            color = (
+                MINT if equipped
+                else CYAN if unlocked
+                else ORANGE if prerequisite_unlocked and profile.brains >= skill["cost"]
+                else MUTED
+            )
+            selected = self.tree_selection == ("skill", index)
+            hovered = self.tree_hover == ("skill", index)
+            if selected or hovered:
+                self.draw_skill_glow(rect.center, color)
+            pygame.draw.circle(
+                screen,
+                color,
+                rect.center,
+                36,
+                4 if selected else 3 if hovered else 2,
+            )
             badge_center = (rect.right - 2, rect.top + 4)
             pygame.draw.circle(screen, color, badge_center, 11)
             draw_centered_text(str(index + 1), badge_center, BG, SMALL)
 
-        bottom_y = 545
-        bottom = pygame.Surface((WIDTH, HEIGHT - bottom_y), pygame.SRCALPHA)
-        bottom.fill((10, 5, 20, 255))
-        screen.blit(bottom, (0, bottom_y))
-        pygame.draw.line(screen, PURPLE, (0, bottom_y), (WIDTH, bottom_y), 2)
-
-        skill = SKILLS[self.skill_selected]
-        unlocked = skill["id"] in profile.unlocked_skills
-        equipped = skill["id"] in profile.equipped_skills
-        draw_text(f"{self.skill_selected + 1}. {skill['name']}", 30, 558, ORANGE, BIG)
-        draw_wrapped_text(skill["description"], 30, 590, 540, WHITE, SMALL, max_lines=2)
-        if equipped:
-            status = "EQUIPADA"
-            action = "REMOVER"
-            action_color = RED
-        elif unlocked:
-            status = "DESBLOQUEADA"
-            action = "EQUIPAR"
-            action_color = MINT if len(profile.equipped_skills) < profile.MAX_EQUIPPED_SKILLS else MUTED
-        else:
-            status = f"CUSTO: {skill['cost']} CÉREBROS"
-            action = "DESBLOQUEAR"
-            action_color = MINT if profile.brains >= skill["cost"] else MUTED
-        draw_text(
-            f"{status}  |  EQUIPADAS: {len(profile.equipped_skills)}/{profile.MAX_EQUIPPED_SKILLS}",
-            30,
-            630,
-            PURPLE,
-            SMALL,
-        )
-
-        pygame.draw.rect(screen, (42, 30, 58), self.skill_action_rect, border_radius=9)
-        pygame.draw.rect(screen, action_color, self.skill_action_rect, 2, border_radius=9)
-        draw_centered_text(action, self.skill_action_rect.center, action_color, FONT)
-        message_color = RED if (
-            profile.last_error
-            or "insuficientes" in self.skill_message
-            or "Limite" in self.skill_message
-        ) else MINT
-        draw_wrapped_text(self.skill_message, 30, 660, 540, message_color, SMALL, max_lines=2)
-        draw_text("Verde: equipada | Ciano: desbloqueada | Laranja: pode comprar", 610, 558, MUTED, SMALL)
-        draw_text("1-7 / clique: selecionar | ENTER / botão: ação", 610, 582, MUTED, SMALL)
-        draw_text("ESC: voltar  |  T: desbloquear torres", 610, 606, MUTED, SMALL)
-
-    def draw_towers(self):
-        if self.skill_tree_image:
-            screen.blit(self.skill_tree_image, (0, 0))
-            side_cover = pygame.Surface((WIDTH - 585, 465))
-            side_cover.fill((10, 5, 20))
-            screen.blit(side_cover, (585, 80))
-        else:
-            screen.fill(BG)
-
-        title_rect = pygame.Rect(0, 0, WIDTH, 80)
-        pygame.draw.rect(screen, (12, 7, 20), title_rect)
-        draw_centered_text("ÁRVORE DE TORRES", title_rect.center, WHITE, BIG)
-        draw_text("CAMINHO DE DESBLOQUEIO", 625, 122, ORANGE, FONT)
-        draw_text("Gárgula (2 cérebros)", 625, 163, WHITE, SMALL)
-        draw_text("Lápide e Milho (2 cada)", 645, 190, WHITE, SMALL)
-        draw_text("Corvo (requer as duas)", 665, 217, WHITE, SMALL)
-        draw_text("Abóbora (requer Corvo)", 685, 244, WHITE, SMALL)
-        draw_text("Cada chefão derrotado concede 3 cérebros.", 625, 294, PURPLE, SMALL)
-
-        brain_count_patch = pygame.Surface((52, 42))
-        brain_count_patch.fill(self.skill_tree_image.get_at((970, 28))[:3] if self.skill_tree_image else BG)
-        screen.blit(brain_count_patch, (978, 7))
-        draw_centered_text(str(profile.brains), (1002, 28), WHITE, BIG)
-
         for index, (kind, rect) in enumerate(zip(self.TOWER_NODE_ORDER, self.tower_node_rects())):
             unlock = TOWER_UNLOCK_BY_KIND[kind]
-            is_unlocked = profile.tower_is_unlocked(kind)
+            unlocked = profile.tower_is_unlocked(kind)
             can_unlock = (
                 profile.brains >= unlock["cost"]
                 and all(profile.tower_is_unlocked(required) for required in unlock["requires"])
             )
-            color = MINT if is_unlocked else ORANGE if can_unlock else MUTED
-            pygame.draw.circle(screen, color, rect.center, 38, 4 if index == self.tower_selected else 2)
-            if index == self.tower_selected:
-                pygame.draw.circle(screen, WHITE, rect.center, 44, 1)
+            color = MINT if unlocked else ORANGE if can_unlock else MUTED
+            selected = self.tree_selection == ("tower", index)
+            hovered = self.tree_hover == ("tower", index)
+            if selected or hovered:
+                self.draw_skill_glow(rect.center, color)
+            pygame.draw.circle(
+                screen,
+                color,
+                rect.center,
+                38,
+                4 if selected else 3 if hovered else 2,
+            )
             badge_center = (rect.right - 2, rect.top + 4)
             pygame.draw.circle(screen, color, badge_center, 11)
             draw_centered_text(str(index + 1), badge_center, BG, SMALL)
@@ -2811,43 +3135,89 @@ class MenuScreen:
         screen.blit(bottom, (0, bottom_y))
         pygame.draw.line(screen, PURPLE, (0, bottom_y), (WIDTH, bottom_y), 2)
 
-        kind = self.TOWER_NODE_ORDER[self.tower_selected]
-        tower = TOWER_TYPES[kind]
-        unlock = TOWER_UNLOCK_BY_KIND[kind]
-        missing = [
-            TOWER_TYPES[required]["name"]
-            for required in unlock["requires"]
-            if not profile.tower_is_unlocked(required)
-        ]
-        is_unlocked = profile.tower_is_unlocked(kind)
-        draw_text(f"{self.tower_selected + 1}. {tower['name']}", 30, 558, ORANGE, BIG)
-        draw_text(tower["desc"], 30, 590, WHITE, SMALL)
-        if is_unlocked:
-            status = "DESBLOQUEADA"
-            action = "DESBLOQUEADA"
-            action_color = MINT
-        elif missing:
-            status = "REQUER: " + " e ".join(missing)
-            action = "PRÉ-REQUISITOS"
-            action_color = MUTED
+        if self.tree_selection is None:
+            node_type, node_index = None, None
+            detail = (
+                "ÁRVORE DE HABILIDADES",
+                "Clique em uma habilidade ou torre para consultar os detalhes.",
+                "Passe o mouse apenas para destacar um nó.",
+            )
+            action, action_color = "SELECIONE UM NÓ", MUTED
         else:
-            status = f"CUSTO: {unlock['cost']} CÉREBROS"
-            action = "DESBLOQUEAR"
-            action_color = MINT if profile.brains >= unlock["cost"] else MUTED
-        draw_text(f"{status}  |  CUSTO NA PARTIDA: {fmt_money(tower['cost'])} ABÓBORAS", 30, 615, PURPLE, SMALL)
+            node_type, node_index = self.tree_selection
+        if node_type == "skill":
+            item = SKILLS[node_index]
+            unlocked = item["id"] in profile.unlocked_skills
+            equipped = item["id"] in profile.equipped_skills
+            prerequisite = SKILLS[node_index - 1] if node_index > 0 else None
+            prerequisite_unlocked = (
+                prerequisite is None
+                or prerequisite["id"] in profile.unlocked_skills
+            )
+            if equipped:
+                status, action, action_color = "EQUIPADA", "DESEQUIPAR", RED
+            elif unlocked:
+                status = "DESBLOQUEADA"
+                action = "EQUIPAR"
+                action_color = MINT if len(profile.equipped_skills) < profile.MAX_EQUIPPED_SKILLS else MUTED
+            elif not prerequisite_unlocked:
+                status = f"REQUER: {prerequisite['name']}"
+                action = "BLOQUEADA"
+                action_color = MUTED
+            else:
+                status = f"CUSTO: {item['cost']} CÉREBROS"
+                action = f"COMPRAR · {item['cost']}"
+                action_color = MINT if profile.brains >= item["cost"] else MUTED
+            detail = (
+                f"HABILIDADE  {node_index + 1}. {item['name']}",
+                item["description"],
+                f"{status}  |  EQUIPADAS: {len(profile.equipped_skills)}/{profile.MAX_EQUIPPED_SKILLS}",
+            )
+        elif node_type == "tower":
+            kind = self.TOWER_NODE_ORDER[node_index]
+            item = TOWER_TYPES[kind]
+            unlock = TOWER_UNLOCK_BY_KIND[kind]
+            missing = [
+                TOWER_TYPES[required]["name"]
+                for required in unlock["requires"]
+                if not profile.tower_is_unlocked(required)
+            ]
+            unlocked = profile.tower_is_unlocked(kind)
+            if unlocked:
+                status, action, action_color = "DESBLOQUEADA", "JÁ DESBLOQUEADA", MINT
+            elif missing:
+                status = "REQUER: " + " e ".join(missing)
+                action, action_color = "PRÉ-REQUISITOS", MUTED
+            else:
+                status = f"CUSTO: {unlock['cost']} CÉREBROS"
+                action = f"DESBLOQUEAR · {unlock['cost']}"
+                action_color = MINT if profile.brains >= unlock["cost"] else MUTED
+            detail = (
+                f"TORRE  {node_index + 1}. {item['name']}",
+                item["desc"],
+                f"{status}  |  CUSTO NA PARTIDA: {fmt_money(item['cost'])} ABÓBORAS",
+            )
+
+        draw_text(detail[0], 30, 555, ORANGE, BIG)
+        draw_wrapped_text(detail[1], 30, 588, 760, WHITE, SMALL, max_lines=2)
+        draw_text(detail[2], 30, 627, PURPLE, SMALL)
+        message = (
+            self.skill_message if node_type == "skill"
+            else self.tower_message if node_type == "tower"
+            else "Sua seleção só muda ao clicar em um nó."
+        )
+        message_color = RED if (
+            profile.last_error
+            or "insuficientes" in message
+            or "Limite" in message
+            or "Desbloqueie primeiro" in message
+        ) else MINT
+        draw_wrapped_text(message, 30, 660, 760, message_color, SMALL, max_lines=2)
 
         pygame.draw.rect(screen, (42, 30, 58), self.skill_action_rect, border_radius=9)
         pygame.draw.rect(screen, action_color, self.skill_action_rect, 2, border_radius=9)
         draw_centered_text(action, self.skill_action_rect.center, action_color, SMALL)
-        message_color = RED if (
-            "insuficientes" in self.tower_message
-            or "Desbloqueie primeiro" in self.tower_message
-            or profile.last_error
-        ) else MINT
-        draw_wrapped_text(self.tower_message, 30, 660, 540, message_color, SMALL, max_lines=2)
-        draw_text("Verde: desbloqueada | Laranja: disponível", 610, 558, MUTED, SMALL)
-        draw_text("1-5 / clique: selecionar | ENTER / botão: desbloquear", 610, 582, MUTED, SMALL)
-        draw_text("B: árvore de melhorias", 610, 606, MUTED, SMALL)
+        draw_centered_text("PASSE: DESTAQUE  |  CLIQUE: VER / APLICAR", (960, 700), MUTED, SMALL)
 
     def draw_ranking(self):
         screen.fill((3, 5, 13))
@@ -2873,13 +3243,8 @@ class MenuScreen:
             draw_text(header, x, 160, CYAN, ARCADE_SMALL)
         pygame.draw.line(screen, (29, 71, 66), (165, 188), (935, 188), 1)
 
-        records = [
-            (entry, difficulty)
-            for difficulty in DIFFICULTIES
-            for entry in leaderboard.records_for(difficulty)
-        ]
-        records.sort(key=lambda record: record[0]["score"], reverse=True)
-        for place, (entry, difficulty) in enumerate(records[:10], 1):
+        records = leaderboard.all_records()
+        for place, (entry, difficulty) in enumerate(records, 1):
             y = 204 + (place - 1) * 36
             if place == 1:
                 color = (255, 228, 92)
@@ -2953,26 +3318,25 @@ class MenuScreen:
             draw_outlined("HARVEST DEFENSE", HUGE, ORANGE, (WIDTH//2, 120))
             for (label, _), r in zip(self.ITEMS, self.RECTS):
                 pygame.draw.rect(screen, (92, 62, 44), r, border_radius=8)
-                draw_outlined(label, FONT, WHITE, r.center)
+                draw_outlined(label, SMALL if len(label) > 12 else FONT, WHITE, r.center)
         self.draw_selection()
+        if profile.active_user is not None:
+            pygame.draw.rect(screen, (18, 11, 29), self.profile_button_rect, border_radius=8)
+            pygame.draw.rect(screen, CYAN, self.profile_button_rect, 2, border_radius=8)
+            draw_centered_text(
+                f"JOGADOR  {profile.active_user}",
+                self.profile_button_rect.center,
+                WHITE,
+                SMALL,
+            )
         if self.panel == "howto":
             self.draw_howto()
         elif self.panel == "ranking":
             self.draw_ranking()
         elif self.panel == "skills":
             self.draw_skills()
-        elif self.panel == "towers":
-            self.draw_towers()
         elif self.panel == "settings":
             self.draw_settings()
-        if self.panel is None:
-            draw_text(
-                f"B: melhorias  |  T: desbloquear torres ({profile.brains} cérebros)  |  R: ranking local",
-                58,
-                548,
-                WHITE,
-                SMALL,
-            )
         if self.time < self.FADE_IN:
             fade = pygame.Surface((WIDTH, HEIGHT))
             fade.set_alpha(int(255 * (1 - self.time / self.FADE_IN)))
@@ -2981,6 +3345,7 @@ class MenuScreen:
 
 leaderboard = Leaderboard()
 profile = PlayerProfile()
+player_screen = PlayerIdentificationScreen()
 difficulty_screen = DifficultyScreen()
 hero_selection_screen = HeroSelectionScreen()
 selected_difficulty = "normal"
@@ -2988,7 +3353,7 @@ game = Game()
 title = TitleScreen()
 menu = MenuScreen()
 music = MusicController()
-state = "title"   # "title" -> tela inicial | "menu" -> menu principal | "difficulty" -> escolha | "playing" -> jogo
+state = "title"   # "title" -> tela inicial | "profile" -> identidade | "menu" -> menu principal
 running = True
 while running:
     dt = min(clock.tick(60)/1000, .04)
@@ -3013,16 +3378,30 @@ while running:
                 if event.key == pygame.K_ESCAPE:
                     running = False
                 else:
-                    menu.enter()
-                    state = "menu"
+                    player_screen.reset()
+                    state = "profile"
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                player_screen.reset()
+                state = "profile"
+            continue
+        if state == "profile":
+            action = player_screen.handle_event(event)
+            if action == "selected":
                 menu.enter()
                 state = "menu"
+            elif action == "back":
+                state = "menu"
+            elif action == "title":
+                title = TitleScreen()
+                state = "title"
             continue
         if state == "menu":
             action = menu.handle_event(event)
             if action == "play":
                 state = "difficulty"
+            elif action == "profile":
+                player_screen.reset()
+                state = "profile"
             elif action == "quit":
                 running = False
             elif action == "title":
@@ -3122,53 +3501,24 @@ while running:
             if event.key == pygame.K_ESCAPE and not (game.completed or game.lost):
                 if game.skills_open:
                     game.skills_open = False
+                elif game.hero_targeting:
+                    game.hero_targeting = False
+                    game.notify("Seleção da área cancelada.", 2)
                 else:
                     game.paused = True
                     game.pause_screen = "main"
                     game.pause_selection = 0
-            elif game.completed and not game.score_saved:
-                if not game.name_entry_active:
-                    if event.key in (
-                        pygame.K_RETURN,
-                        pygame.K_KP_ENTER,
-                        pygame.K_ESCAPE,
-                        pygame.K_r,
-                    ):
-                        game.name_entry_active = True
-                elif event.key == pygame.K_LEFT:
-                    game.initials_index = (game.initials_index - 1) % 3
-                elif event.key == pygame.K_RIGHT:
-                    game.initials_index = (game.initials_index + 1) % 3
-                elif event.key in (pygame.K_UP, pygame.K_DOWN):
-                    letter = ord(game.initials[game.initials_index]) - ord("A")
-                    delta = 1 if event.key == pygame.K_UP else -1
-                    game.initials[game.initials_index] = chr((letter + delta) % 26 + ord("A"))
-                elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                    error = game.save_completed_score("".join(game.initials))
-                    if error:
-                        game.notify("Não foi possível salvar o placar; tente novamente.", 5)
-                elif event.key == pygame.K_ESCAPE:
-                    error = game.save_completed_score("".join(game.initials))
-                    if error is None:
-                        menu.enter()
-                        state = "menu"
-                        menu.panel = "ranking"
-                elif len(event.unicode) == 1 and "a" <= event.unicode.lower() <= "z":
-                    game.initials[game.initials_index] = event.unicode.upper()
-                    game.initials_index = (game.initials_index + 1) % 3
             elif game.completed or game.lost:
-                if event.key == pygame.K_RETURN:
-                    game = Game(game.difficulty, game.hero_id)
-                elif event.key == pygame.K_r and game.completed:
-                    menu.enter()
-                    menu.panel = "ranking"
-                    state = "menu"
+                if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    if game.result_saved:
+                        game = Game(game.difficulty, game.hero_id)
+                    elif profile.active_user:
+                        game.save_player_result(profile.active_user)
                 elif event.key == pygame.K_ESCAPE:
                     menu.enter()
                     state = "menu"
             elif game.skills_open:
-                if event.key == pygame.K_t:
-                    game.skills_open = False
+                pass
             else:
                 if event.key == pygame.K_SPACE:
                     game.start_wave()
@@ -3177,13 +3527,13 @@ while running:
                     if profile.tower_is_unlocked(kind):
                         game.selected_kind = kind
                     else:
-                        game.notify(f"{TOWER_TYPES[kind]['name']} bloqueada. Pressione T no menu para desbloquear.")
+                        game.notify(f"{TOWER_TYPES[kind]['name']} está bloqueada. Desbloqueie-a na árvore de habilidades do menu.")
                 elif event.key in (pygame.K_q, pygame.K_w, pygame.K_e):
                     kind = {pygame.K_q: 0, pygame.K_w: 1, pygame.K_e: 2}[event.key]
                     if profile.tower_is_unlocked(kind):
                         game.selected_kind = kind
                     else:
-                        game.notify(f"{TOWER_TYPES[kind]['name']} bloqueada. Pressione T no menu para desbloquear.")
+                        game.notify(f"{TOWER_TYPES[kind]['name']} está bloqueada. Desbloqueie-a na árvore de habilidades do menu.")
                 elif event.key == pygame.K_u:
                     game.upgrade_selected()
                 elif event.key == pygame.K_v:
@@ -3192,34 +3542,56 @@ while running:
                     game.use_special()
                 elif event.key == pygame.K_g:
                     game.use_hero_ability(logical_mouse_position(pygame.mouse.get_pos()))
-                elif event.key == pygame.K_t:
-                    game.skills_open = True
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
-            if game.skills_open:
-                if not pygame.Rect(245,145,610,430).collidepoint(pos):
+            if game.completed or game.lost:
+                if game.result_replay_rect.collidepoint(pos):
+                    if game.result_saved:
+                        game = Game(game.difficulty, game.hero_id)
+                    elif profile.active_user:
+                        game.save_player_result(profile.active_user)
+                elif game.result_menu_rect.collidepoint(pos):
+                    menu.enter()
+                    state = "menu"
+            elif game.skills_open:
+                if game.skill_close_button_rect.collidepoint(pos) or not pygame.Rect(245,145,610,430).collidepoint(pos):
                     game.skills_open = False
+            elif game.hero_targeting:
+                if game.play_rect.collidepoint(pos) and game.use_hero_ability(pos):
+                    game.hero_targeting = False
             elif game.auto_waves_button_rect.collidepoint(pos):
                 game.toggle_wave_mode()
-            elif game.selected_tower and game.sell_button_rect.collidepoint(pos):
+            elif game.start_wave_button_rect.collidepoint(pos):
+                game.start_wave()
+            elif game.special_button_rect.collidepoint(pos):
+                game.use_special()
+            elif game.hero_button_rect.collidepoint(pos):
+                game.begin_hero_ability()
+            elif game.upgrade_button_rect.collidepoint(pos):
+                game.upgrade_selected()
+            elif game.sell_button_rect.collidepoint(pos):
                 game.sell_selected()
+            elif game.skills_button_rect.collidepoint(pos):
+                game.skills_open = True
             elif MAP_RECT.collidepoint(pos):
                 found = next((t for t in reversed(game.towers) if dist(pos,(t.x,t.y)) < 22),None)
                 if found:
                     game.selected_tower=found
                 else:
                     game.buy_tower(pos)
-            elif pos[1] >= 602 and pos[1] <= 672:
+            elif any(rect.collidepoint(pos) for rect in game.tower_card_rects):
                 for i in range(len(TOWER_TYPES)):
-                    if pygame.Rect(24+i*174,598,164,94).collidepoint(pos):
+                    if game.tower_card_rects[i].collidepoint(pos):
                         if profile.tower_is_unlocked(i):
                             game.selected_kind=i
                         else:
-                            game.notify(f"{TOWER_TYPES[i]['name']} bloqueada. Pressione T no menu para desbloquear.")
+                            game.notify(f"{TOWER_TYPES[i]['name']} está bloqueada. Desbloqueie-a na árvore de habilidades do menu.")
     music.update(state, game)
     if state == "title":
         title.update(dt)
         title.draw()
+    elif state == "profile":
+        player_screen.draw()
     elif state == "menu":
         menu.update(dt)
         menu.draw()
@@ -3229,6 +3601,12 @@ while running:
         hero_selection_screen.draw(menu, selected_difficulty)
     else:
         game.update(dt)
+        if (game.completed or game.lost) and not game.result_save_attempted:
+            game.result_save_attempted = True
+            if profile.active_user:
+                game.save_player_result(profile.active_user)
+            else:
+                game.identity_save_error = "Identifique um jogador antes de salvar o resultado."
         game.draw()
     present_frame()
 
