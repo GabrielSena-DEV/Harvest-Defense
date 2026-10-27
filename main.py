@@ -10,7 +10,7 @@ import pygame
 pygame.init()
 pygame.display.set_caption("HARVEST DEFENSE — Proteja a fazenda. Defenda a colheita.")
 WIDTH, HEIGHT = 1100, 720
-pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+pygame.display.set_mode((1024, 768), pygame.RESIZABLE)
 screen = pygame.Surface((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 FONT = pygame.font.SysFont("trebuchetms,verdana,dejavusans", 17)
@@ -171,6 +171,7 @@ SKILLS = [
     {"id": "harvest_bounty", "name": "Recompensa da Colheita", "description": "Ganhe 15% mais abóboras por inimigo derrotado.", "cost": 4},
     {"id": "lunar_focus", "name": "Foco Lunar", "description": "Pulso lunar recarrega 20% mais rápido e causa +20% de dano.", "cost": 5},
     {"id": "frost_runes", "name": "Runas Gélidas", "description": "Todos os inimigos avançam 15% mais devagar.", "cost": 5},
+    {"id": "rapid_fire_2", "name": "Rajada Rápida II", "description": "Aumenta em mais 8% a velocidade de ataque das torres.", "cost": 5},
 ]
 ENEMY_ARCHETYPES = {
     "zombie": {"hp": 1.7, "speed": 0.65, "armor": 0, "regen": 0, "pack": False},
@@ -711,6 +712,12 @@ class Tower:
 
     def draw(self, surface, selected=False):
         x, y = int(self.x), int(self.y)
+        if selected:
+            range_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            pygame.draw.circle(range_overlay, (*self.color, 28), (x, y), round(self.range))
+            pygame.draw.circle(range_overlay, (*self.color, 180), (x, y), round(self.range), 2)
+            pygame.draw.circle(range_overlay, (*WHITE, 100), (x, y), 22, 2)
+            surface.blit(range_overlay, (0, 0))
         pygame.draw.circle(surface, (42, 26, 54), (x, y), 20)
         pygame.draw.circle(surface, self.color, (x, y), 20, 3)
         tip = (x+int(math.cos(self.angle)*20), y+int(math.sin(self.angle)*20))
@@ -1507,8 +1514,8 @@ class HeroSelectionScreen:
             draw_text(hero["ability"], text_x, rect.y + 33, ORANGE, SMALL)
 
             lines = wrap_text(hero["description"], SMALL, text_width)
-            for line_index, line in enumerate(lines[:2]):
-                draw_text(line, text_x, rect.y + 57 + line_index * 16, MUTED, SMALL)
+            for line_index, line in enumerate(lines[:3]):
+                draw_text(line, text_x, rect.y + 54 + line_index * 13, MUTED, SMALL)
             draw_text(
                 f"Recarga: {hero['cooldown']} s",
                 text_x,
@@ -1715,7 +1722,7 @@ class Game:
         self.wave_brains_earned = 0
         self.wave_active = False
         self.wave_wait = False
-        self.selected_kind = 0
+        self.selected_kind = None
         self.selected_tower = None
         self.message = "Clique em INICIAR ONDA para começar."
         self.message_time = 5
@@ -1748,7 +1755,9 @@ class Game:
         self.skills_open = False
         self.bonus_damage = 1.1 if "sharpshooter" in self.equipped_skills else 1.0
         self.bonus_income = 1.15 if "harvest_bounty" in self.equipped_skills else 1.0
-        self.fast_fire = .92 if "rapid_fire" in self.equipped_skills else 1.0
+        self.fast_fire = .92 if (
+            "rapid_fire" in self.equipped_skills or "rapid_fire_2" in self.equipped_skills
+        ) else 1.0
         self.barn_damage_multiplier = .9 if "reinforced_barn" in self.equipped_skills else 1.0
         self.special_cooldown_multiplier = .8 if "lunar_focus" in self.equipped_skills else 1.0
         self.special_damage_multiplier = 1.2 if "lunar_focus" in self.equipped_skills else 1.0
@@ -1891,6 +1900,9 @@ class Game:
         self.use_hero_ability(self.play_rect.center)
 
     def buy_tower(self, pos):
+        if self.selected_kind is None:
+            self.notify("Selecione uma torre no painel antes de posicioná-la.")
+            return
         path_radius = 34 if self.scene else 28
         if (not self.play_rect.collidepoint(pos)
                 or on_path(pos, self.path, path_radius)):
@@ -1908,7 +1920,8 @@ class Game:
             return
         self.money -= spec["cost"]
         self.towers.append(Tower(pos, self.selected_kind, self.fast_fire))
-        self.selected_tower = self.towers[-1]
+        self.selected_tower = None
+        self.selected_kind = None
         self.notify(f"Torre posicionada: {spec['name']}!")
 
     def upgrade_selected(self):
@@ -2643,7 +2656,7 @@ class Game:
 
 def toggle_fullscreen():
     if is_fullscreen():
-        pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+        pygame.display.set_mode((1024, 768), pygame.RESIZABLE)
     else:
         pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
@@ -2653,17 +2666,29 @@ def is_fullscreen():
 
 def logical_mouse_position(position):
     window = pygame.display.get_surface()
+    window_width, window_height = window.get_size()
+    scale = min(window_width / WIDTH, window_height / HEIGHT)
+    offset_x = (window_width - WIDTH * scale) / 2
+    offset_y = (window_height - HEIGHT * scale) / 2
     return (
-        int(position[0] * WIDTH / window.get_width()),
-        int(position[1] * HEIGHT / window.get_height()),
+        int((position[0] - offset_x) / scale),
+        int((position[1] - offset_y) / scale),
     )
 
 def present_frame():
     window = pygame.display.get_surface()
-    if window.get_size() != screen.get_size():
-        pygame.transform.smoothscale(screen, window.get_size(), window)
+    window_width, window_height = window.get_size()
+    scale = min(window_width / WIDTH, window_height / HEIGHT)
+    rendered_width = max(1, round(WIDTH * scale))
+    rendered_height = max(1, round(HEIGHT * scale))
+    offset_x = (window_width - rendered_width) // 2
+    offset_y = (window_height - rendered_height) // 2
+    window.fill((0, 0, 0))
+    if rendered_width != WIDTH or rendered_height != HEIGHT:
+        scaled = pygame.transform.smoothscale(screen, (rendered_width, rendered_height))
+        window.blit(scaled, (offset_x, offset_y))
     else:
-        window.blit(screen, (0, 0))
+        window.blit(screen, (offset_x, offset_y))
     pygame.display.flip()
 
 class MusicController:
@@ -2741,22 +2766,24 @@ class MenuScreen:
         pygame.Rect(52, 534, 250, 46),
         pygame.Rect(52, 585, 250, 45),
     ]
+    # Centros dos nós na imagem original de 1672x941.
     SKILL_NODE_SOURCE_CENTERS = [
-        (1050, 210),
-        (1140, 365),
-        (1305, 210),
-        (990, 500),
-        (930, 365),
-        (1305, 500),
-        (1400, 640),
+        (160, 503),
+        (365, 503),
+        (570, 503),
+        (775, 503),
+        (980, 503),
+        (1185, 503),
+        (1390, 503),
+        (1595, 503),
     ]
     TOWER_NODE_ORDER = [1, 2, 3, 4, 5]
     TOWER_NODE_SOURCE_CENTERS = [
-        (424, 207),
-        (282, 388),
-        (562, 388),
-        (424, 578),
-        (424, 766),
+        (160, 207),
+        (438, 207),
+        (757, 207),
+        (1075, 207),
+        (1390, 207),
     ]
     FADE_IN = 0.5
     GREEN = (120, 255, 130)
@@ -2856,11 +2883,10 @@ class MenuScreen:
                             kind, index = selection
                             if kind == "skill":
                                 self.skill_selected = index
-                                self.skill_message = "Use o botão para comprar, equipar ou remover."
+                                self.skill_message = "Confira os detalhes e confirme a ação pelo botão abaixo."
                             else:
                                 self.tower_selected = index
-                                self.tower_message = "Use o botão para desbloquear a torre."
-                            self.activate_selected_tree_node()
+                                self.tower_message = "Confira os detalhes e confirme a ação pelo botão abaixo."
                 elif self.back_rect().collidepoint(event.pos) or not self.panel_rect().collidepoint(event.pos):
                     back = True
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -3217,7 +3243,7 @@ class MenuScreen:
         pygame.draw.rect(screen, (42, 30, 58), self.skill_action_rect, border_radius=9)
         pygame.draw.rect(screen, action_color, self.skill_action_rect, 2, border_radius=9)
         draw_centered_text(action, self.skill_action_rect.center, action_color, SMALL)
-        draw_centered_text("PASSE: DESTAQUE  |  CLIQUE: VER / APLICAR", (960, 700), MUTED, SMALL)
+        draw_centered_text("CLIQUE: VER DETALHES  |  BOTÃO: CONFIRMAR AÇÃO", (960, 700), MUTED, SMALL)
 
     def draw_ranking(self):
         screen.fill((3, 5, 13))
@@ -3365,6 +3391,14 @@ while running:
             pygame.display.set_mode(event.size, pygame.RESIZABLE)
             continue
         if event.type == pygame.WINDOWRESIZED:
+            continue
+        focus_lost = event.type == getattr(pygame, "WINDOWFOCUSLOST", -1)
+        if event.type == getattr(pygame, "ACTIVEEVENT", -1):
+            focus_lost = getattr(event, "gain", 1) == 0
+        if focus_lost and state == "playing":
+            game.paused = True
+            game.pause_screen = "main"
+            game.pause_selection = 0
             continue
         if hasattr(event, "pos"):
             event_data = event.dict.copy()
@@ -3522,6 +3556,9 @@ while running:
             else:
                 if event.key == pygame.K_SPACE:
                     game.start_wave()
+                elif event.key == pygame.K_ESCAPE:
+                    game.selected_kind = None
+                    game.notify("Seleção de torre cancelada.")
                 elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6):
                     kind = event.key - pygame.K_1
                     if profile.tower_is_unlocked(kind):
@@ -3542,6 +3579,11 @@ while running:
                     game.use_special()
                 elif event.key == pygame.K_g:
                     game.use_hero_ability(logical_mouse_position(pygame.mouse.get_pos()))
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            if state == "game":
+                game.selected_kind = None
+                game.selected_tower = None
+                game.notify("Seleção de torre cancelada.")
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
             if game.completed or game.lost:
@@ -3576,7 +3618,8 @@ while running:
             elif MAP_RECT.collidepoint(pos):
                 found = next((t for t in reversed(game.towers) if dist(pos,(t.x,t.y)) < 22),None)
                 if found:
-                    game.selected_tower=found
+                    game.selected_kind = None
+                    game.selected_tower = found
                 else:
                     game.buy_tower(pos)
             elif any(rect.collidepoint(pos) for rect in game.tower_card_rects):
